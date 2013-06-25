@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# RUN EXPRESSO TO IDENTIFY TEMPLATES
+
+# Option 1. PDB files from the NCBI database
+#/usr/bin/time -v t_coffee PF*.fasta  -mode expresso -blast=LOCAL -pdb_db=/db/ncbi/201304/blast/db/pdbaa.fa -pdb_type d -pdb_min_sim 95 -pdb_min_cov 95 -cache $PWD
+
+# Option 2. PDB files from the PDB  database
+/usr/bin/time -v t_coffee PF*.fasta  -mode expresso -blast=LOCAL -pdb_db=/db/pdb/derived_data_format/blast/latest/pdb_seqres.fa -pdb_type d -pdb_min_sim 95 -pdb_min_cov 95 -cache $PWD
+
+grep _P_  *_pdb1.template_list > temp.list
+t_coffee -other_pg seq_reformat -in PF*.fasta -action +extract_seq_list temp.list > temp.fasta
+
+# MODIFY THE PDB FILES AND THE TEMPLATES AND CREATE FASTA (ONE PER ALIGNER) 
+perl PDB_extract.pl
+
+cp modified.fasta sap.fasta
+cp modified.fasta mustang.fasta
+cp modified.fasta tmalign.fasta
+cp modified.fasta tcoffee.fasta
+cp modified.fasta mcoffee.fasta
+cp modified.fasta psicoffee.fasta
+cp modified.fasta 3Dmcoffee.fasta
+cp modified.fasta sap_proba.fasta
+cp modified.fasta mustang_proba.fasta
+cp modified.fasta tmalign_proba.fasta
+cp modified.fasta clustalw.fasta
+cp modified.fasta mafft.fasta
+cp modified.fasta msaprobs.fasta
+cp modified.fasta muscle.fasta
+cp modified.fasta prank.fasta
+cp modified.fasta probcons.fasta
+cp modified.fasta sate.fasta
+
+# ALIGNMENT TIME !!!!!
+/usr/bin/time -v t_coffee sap.fasta -template_file modified.template -method sap_pair -out_lib sap.lib
+/usr/bin/time -v t_coffee mustang.fasta -template_file modified.template -method mustang_pair -out_lib mustang.lib
+/usr/bin/time -v t_coffee tmalign.fasta -template_file modified.template -method TMalign_pair -out_lib tmalign.lib
+/usr/bin/time -v t_coffee tcoffee.fasta -out_lib tcoffee.lib
+/usr/bin/time -v t_coffee mcoffee.fasta -mode mcoffee -out_lib mcoffee.lib
+/usr/bin/time -v t_coffee psicoffee.fasta -mode psicoffee -blast=LOCAL -protein_db=/db/ncbi/201304/blast/db/nr.fa -out_lib psicoffee.lib multi_core=no
+/usr/bin/time -v t_coffee 3Dmcoffee.fasta -lib sap.lib mustang.lib tmalign.lib
+/usr/bin/time -v t_coffee sap_proba.fasta -lib tcoffee.lib sap.lib
+/usr/bin/time -v t_coffee mustang_proba.fasta -lib tcoffee.lib mustang.lib
+/usr/bin/time -v t_coffee tmalign_proba.fasta -lib tcoffee.lib tmalign.lib
+
+/usr/bin/time -v clustalw clustalw.fasta 
+/usr/bin/time -v mafft mafft.fasta > mafft.temp
+/usr/bin/time -v t_coffee -other_pg seq_reformat mafft.temp -output clustalw > mafft.aln
+/usr/bin/time -v msaprobs msaprobs.fasta -o msaprobs.temp
+/usr/bin/time -v t_coffee -other_pg seq_reformat msaprobs.temp -output clustalw > msaprobs.aln
+/usr/bin/time -v muscle -in muscle.fasta -out muscle.temp
+/usr/bin/time -v t_coffee -other_pg seq_reformat muscle.temp -output clustalw > muscle.aln
+/usr/bin/time -v prank -d=prank.fasta -o=prank.temp
+/usr/bin/time -v t_coffee -other_pg seq_reformat prank.temp.2.fas -output clustalw > prank.aln
+/usr/bin/time -v probcons probcons.fasta > probcons.temp
+/usr/bin/time -v t_coffee -other_pg seq_reformat probcons.temp -output clustalw > probcons.aln
+export PYTHONPATH="/users/cn/jchang/local/Python/lib/python2.6/site-packages/"
+python /users/cn/jchang/program/satesrc-v2.2.5-2012Oct16/sate-core/run_sate.py --input sate.fasta --datatype=Protein --num-cpus=1 --output-directory=tmp_sate --auto
+/usr/bin/time -v t_coffee -other_pg seq_reformat ./tmp_sate/satejob*.marker001.sate.aln -output clustalw > sate.aln

@@ -1,0 +1,30 @@
+#!/bin/bash
+
+#
+# A generic Large scale aligners command wrapper
+#
+# CLI Parameters:
+# - $1: Aligner strategy to use
+# - $2: Input file
+# - $3: Output file
+# - $4: Number of threads (optional, otherwise 1)
+
+n_threads=${4:-1}
+
+set -e
+set -u
+
+case "$1" in
+'mafft')
+unset MAFFT_BINARIES
+mafft --anysymbol --parttree --thread $n_threads --quiet $2 > $3
+;;
+
+'clustalo')
+clustalo --threads $n_threads -i $2 -o $3
+;;
+
+*) echo "Not a valid BLAST strategy: $1"; exit 1
+;;
+
+esac 
