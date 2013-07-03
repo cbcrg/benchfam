@@ -22,6 +22,7 @@ largeScalePath.eachFile { File aln ->
  }
 }
 
+fasta << groovyx.gpars.dataflow.operator.PoisonPill.instance
 
 task("Large-scale MSAs"){
     input method
@@ -34,8 +35,14 @@ task("Large-scale MSAs"){
 
 }
 
+/* 
+ 
 task ('Extract splib'){
 
 
     "extract_subAln.pl $lib_file $lmsa_clustal" 
 }
+
+ */
+ 
+ println "Done"

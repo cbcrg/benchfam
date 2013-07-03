@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 ($subSeq_file, $largeSeq_file)=@ARGV;
 
 
