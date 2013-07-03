@@ -1,14 +1,39 @@
 #!/usr/bin/env nextflow
 
-params.in = 'tutorial/sample.fasta'
+params.in = 'tutorial/example/PF0001.fasta'
 params.pdb_db='/db/pdb/derived_data_format/blast/latest/pdb_seqres.fa'
 params.pdb_dir='/db/pdb/data/structures/divided/pdb'
 params.largeScaleMethods = 'mafft clustalo'
 params.structuralAligners = 'sap mustang TMalign'
 params.normalAligners = 'tcoffee mcoffee psicoffee 3Dmcoffee sap_proba mustang_proba tmalign_proba clustalw mafft msaprobs muscle prank probcons sate'
 
+/* 
+ * Enable/disable tasks stdout print 
+ */
+params.echo = true
+echo params.echo
 
-fasta = channel( file(params.in))
+
+fasta = channel()
+
+/* 
+ * If the input parameters is a directory, find out all PF* fasta file 
+ * otherwise just use the specified file as the input file 
+ */
+
+inputFile = file(params.in)
+if( inputFile.isDirectory() ) {
+   int count=0
+   inputFile.eachFileMatch( ~/PF.*\.fasta/ ) { fasta << it; count++ }
+   if( !count ) { exit 1, "No valid files found in path: $inputFile" }
+}
+else {
+   fasta << inputFile 
+}
+
+// well yes, this should be nicer
+fasta << groovyx.gpars.dataflow.operator.PoisonPill.instance
+
 
 structural_fasta = list()
 structural_template = list()
@@ -17,7 +42,6 @@ task('pdb-extract') {
   input fasta
   output 'modified.fasta': structural_fasta 
   output 'modified.template': structural_template
-  echo true
 
   """ 
   export PDB_DIR=${params.pdb_dir}
@@ -38,7 +62,6 @@ task('create-structural-lib') {
   input structural_fasta 
   input structural_template
   output structural_outlib
-  echo true
 
   """
 
