@@ -7,7 +7,7 @@
 # - $1: Aligner strategy to use
 # - $2: Input file
 # - $3: Output file
-# - $4: Number of threads (optional, otherwise 1)
+# - $4: Number of threads (optional, default 1)
 
 n_threads=${4:-1}
 
