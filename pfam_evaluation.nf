@@ -1,6 +1,7 @@
 #!/usr/env nextflow
-params.largeScalePath='./tutorial/fam/*.fa'
-params.cpus = 4
+
+params.largeScalePath='./tutorial/*.fa'
+params.cpus = 1
 
 dataset = file(params.largeScalePath)
 
@@ -9,6 +10,23 @@ allMethods = ['mafft','clustalo']
 famNames = 'PF00005 PF00006'
 
 base_path = '/users/cn/cmagis/PROJET/PHYLO3D/DATASET'
+
+
+process Large_scale_MSAs {
+    
+    input: 
+    	each method using allMethods
+    	file dataset
+    	  
+    output: 
+        file '*.fa' using aln_out
+
+    """
+	x-align $method ${dataset} ${dataset.baseName}_${method}.fa ${params.cpus}
+    """
+
+}
+
 
 process splib {
     input: 
@@ -23,41 +41,38 @@ process splib {
 }
 
 
-process Large_scale_MSAs {
-    
-    input: 
-    	file 'input_file' using dataset
-    	  
-    output: 
-        file '*.fa' using aln_out joint true
 
-    """
-    for method in ${allMethods.join(' ')}; do  
-    x-align $method input_file ${method}.fa ${params.cpus}
-    done
-    """
+/* 
+ * Aggregate the list of files by PFAM family names 
+ */
+alnMap = list(aln_out).groupBy { it.getName().split('_')[0] } 
 
-}
+spList = list(spLib)
 
-tick = aln_out.val
+tick = channel()
+spList.each { file1 ->
+   def familyName = file1.baseName
+   def alignments = alnMap[familyName]
+   alignments.each { file2 -> tick <<  [family:familyName, splib: file1, aln: file2]  }
+} 
 
+tick << groovyx.gpars.dataflow.operator.PoisonPill.instance
 
 
 process extractedMSA {
    
     input: 
-       val fam using spLib
-       each aln using tick
+  	val entry using tick
 
     output: 
        file '*.extracted_msa' using extracted_msa
 
 
     """
-    fam_name=${fam.baseName}
-    aln_name=${aln.baseName}
+    fam_name=${entry.family}
+    aln_name=${entry.aln.baseName}
 
-    extract_subAln.pl $fam $aln 
+    extract_subAln.pl ${entry.splib} ${entry.aln}
 
     if [ -s \${fam_name}_error.log ]; then 
      echo There are erros in the log file. Check \${fam_name}_error.log
@@ -66,6 +81,7 @@ process extractedMSA {
     mv \${fam_name}_\${aln_name}.fa \${fam_name}_\${aln_name}.extracted_msa  
     """ 
 }
+
 
 
  
