@@ -15,7 +15,7 @@ $i=0;
 open SUBseq, $subSeq_file;
 while (<SUBseq>)
 { 
-    if($_=~/^#.*/){ last; }
+    if($_=~/^#.*/){ next; }
     if($_=~/^(.*)\s\d+.*/){ 
 	$hashStru{$1}=$i;
 	$i++;

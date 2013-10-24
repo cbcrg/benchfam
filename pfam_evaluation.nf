@@ -43,7 +43,7 @@ process splib {
 
 
 /* 
- * Aggregate the list of files by PFAM family names 
+ * Aggregate the list of files by PFAM family name 
  */
 alnMap = list(aln_out).groupBy { it.getName().split('_')[0] } 
 
@@ -60,6 +60,7 @@ tick << groovyx.gpars.dataflow.operator.PoisonPill.instance
 
 
 process extractedMSA {
+    errorStrategy 'ignore'
    
     input: 
   	val entry using tick
@@ -74,12 +75,37 @@ process extractedMSA {
 
     extract_subAln.pl ${entry.splib} ${entry.aln}
 
-    if [ -s \${fam_name}_error.log ]; then 
-     echo There are erros in the log file. Check \${fam_name}_error.log
-     exit 1
-    fi 
+    #if [ -s \${fam_name}_error.log ]; then 
+    # echo There are erros in the log file. Check \${fam_name}_error.log
+    # exit 1
+    #fi 
     mv \${fam_name}_\${aln_name}.fa \${fam_name}_\${aln_name}.extracted_msa  
     """ 
+}
+
+msaMap = list(extracted_msa).groupBy { it.getName().split('_')[0] } 
+
+msa_eval = channel()
+spList.each { file1 ->
+   def familyName = file1.baseName
+   def alignments = msaMap[familyName]
+   alignments.each { file2 -> msa_eval <<  [family:familyName, splib: file1, msa: file2]  }
+} 
+
+msa_eval << groovyx.gpars.dataflow.operator.PoisonPill.instance
+
+process evaluate {
+  
+   input: 
+      val entry using msa_eval
+
+   output:
+      file '*.Res' using evaluation
+
+   """
+   t_coffee -other_pg aln_compare -lib ${entry.splib} -al2 ${entry.msa} >> ${entry.family}_evalution.Res
+   """
+
 }
 
 
