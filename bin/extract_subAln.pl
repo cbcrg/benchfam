@@ -1,9 +1,9 @@
-#!/bin/env perl
+#!/usr/bin/env perl
 ($subSeq_file, $largeSeq_file)=@ARGV;
 
 
 if($subSeq_file=~/.*\/(PF.*)\.sp_lib/){  $subSeq_file_name=$1; }
-if($largeSeq_file=~/.*\/(.*)\.fa/){  $largeSeq_file_name=$1; }
+if($largeSeq_file=~/.*\/(.*)\.aln/){  $largeSeq_file_name=$1; }
 
 $out_file=$subSeq_file_name."_".$largeSeq_file_name.".fa";
 $erout_file="$subSeq_file_name"."_error.log";
