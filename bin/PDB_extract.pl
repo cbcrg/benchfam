@@ -22,16 +22,18 @@ use File::Copy;
 
 open(TMP_INIT,"temp.list");
 open(TMP_MODIF,">modified.template");
-open(PML_SCRPT,">super.pml");
 open(FASTA,"temp.fasta");
 open(FASTA_MODIF,">modified.fasta");
+open(PML_SCRPT,">super.pml");
 
 # Sliding window of 20 aa when comparing Pfam and PDB sequences
 my $sw=5;
 
-# Filter on sequence length (% of the average)
+# Parameters for filtering (% of avrg length, % identity and % coverage)
 my $sl=0.75;
 my $sh=1.50;
+my $cov=0.05;
+my $idt=0.90;
 
 # from initial template file
 my @tmppdb=();
@@ -46,8 +48,6 @@ my @fastaseq=();
 # from pdb file
 my @pdbseq=();
 my @pdbpos=();
-my @pdbnter=();
-my @pdbcter=();
 
 # temporary arrays
 my @tempname;
@@ -76,7 +76,6 @@ while (my $line1=<TMP_INIT>)
 # determine if repeats or tandem presents and rename pdb with an index number
 #############################################################################
 
-#print "$ia number of templates \n";
 my $red;
 my $red2;
 my $count;
@@ -95,28 +94,28 @@ for ($red=0;$red<=$ia-2;$red++)
 		if (@tmppdb[$red] eq @tmppdb[$red2])
 		{
 		$count++;
-		copy ("@tmppdb[$red2].pdb","@tmppdb[$red2]-$count.pdb");
-		@tmppdb[$red2]="@tmppdb[$red2]-$count";
+		copy ("$tmppdb[$red2].pdb","$tmppdb[$red2]-$count.pdb");
+		$tmppdb[$red2]="$tmppdb[$red2]-$count";
 		}
 	}
 	if ($count=1)
 	{
-		if (substr(@tmppdb[$red],5,1) ne "-")
+		if (substr($tmppdb[$red],5,1) ne "-")
 		{ 
-			copy ("@tmppdb[$red].pdb","@tmppdb[$red]-$count.pdb");
-			@tmppdb[$red]=@tmppdb[$red]."-$count";
+			copy ("$tmppdb[$red].pdb","$tmppdb[$red]-$count.pdb");
+			$tmppdb[$red]=$tmppdb[$red]."-$count";
 		}
 	}
 }
 
-if (substr(@tmppdb[$ia-1],5,1) ne "-")
+if (substr($tmppdb[$ia-1],5,1) ne "-")
 {
-	copy ("@tmppdb[$ia-1].pdb","@tmppdb[$ia-1]-1.pdb");
-	@tmppdb[$ia-1]=@tmppdb[$ia-1]."-1";
+	copy ("$tmppdb[$ia-1].pdb","$tmppdb[$ia-1]-1.pdb");
+	$tmppdb[$ia-1]=$tmppdb[$ia-1]."-1";
 }
 #for ($exit=0;$exit<=$ia-1;$exit++)
 #{
-#	print TMP_MODIF ">@tmpname[$exit]/@tmpnter[$exit]-@tmpcter[$exit] _P_ @tmppdb[$exit]\n";
+#	print TMP_MODIF ">$tmpname[$exit]/$tmpnter[$exit]-$tmpcter[$exit] _P_ $tmppdb[$exit]\n";
 #}
 
 #############################################################################
@@ -152,7 +151,7 @@ while (my $line2=<FASTA>)
 #my $itest;
 #for ($itest=0;$itest<=$ia-1;$itest++)
 #{
-#print @fastaseq[$itest],"\n";
+#print $fastaseq[$itest],"\n";
 #}
 
 #############################################################################
@@ -162,8 +161,8 @@ while (my $line2=<FASTA>)
 my $ic;
 for ($ic=0;$ic<=$ia-1;$ic++)
 {
-	@tempname[$ic]="@tmpname[$ic]/@tmpnter[$ic]-@tmpcter[$ic]";
-	if (@tempname[$ic]ne@fastaname[$ic]) {die ("Template and Fasta files do not contains the domains in the same order");}
+	$tempname[$ic]="$tmpname[$ic]/$tmpnter[$ic]-$tmpcter[$ic]";
+	if ($tempname[$ic]ne$fastaname[$ic]) {die ("Template and Fasta files do not contains the domains in the same order");}
 }
 
 ############################################################################
@@ -175,8 +174,8 @@ my $sum=0;
 my $avr=0;
 for ($ie=0;$ie<=$ia-1;$ie++)
 {
-	print length(@fastaseq[$ie])," protein @fastaname[$ie] \n";
-        $sum=$sum+length(@fastaseq[$ie]);
+	print length($fastaseq[$ie])," protein $fastaname[$ie] \n";
+	$sum=$sum+length($fastaseq[$ie]);
 }
 $avr=$sum/($ia);
 print "Average length for dataset is $avr \n";
@@ -190,47 +189,39 @@ my $ipdb;
 my $rtyp_1;
 my $pdb_seq;
 my $pdb_pos;
-my @fm;
 
 for ($ipdb=0;$ipdb<=$ia-1;$ipdb++)
 {
-	open (PDB_FILE,"@tmppdb[$ipdb].pdb");
-#	print @tmppdb[$ipdb],"\n";
+	open (PDB_FILE,"$tmppdb[$ipdb].pdb");
 	while (my $line3=<PDB_FILE>)
 	{
-                @fm=split("",$line3);
-		my $field = ("@fm[0]"."@fm[1]"."@fm[2]"."@fm[3]"."@fm[4]"."@fm[5]");
-		my $pos = ("@fm[6]"."@fm[7]"."@fm[8]"."@fm[9]"."@fm[10]");
-		my $atyp = ("@fm[12]"."@fm[13]"."@fm[14]"."@fm[15]");
-		my $rtyp = ("@fm[17]"."@fm[18]"."@fm[19]");
-		my $chid = ("@fm[21]");
-		my $resid = ("@fm[22]"."@fm[23]"."@fm[24]"."@fm[25]");
 
-		if ($field eq 'ATOM  ' && $atyp eq ' CA ')
+		$line3=~/(\w+)(\s+)(\w+)(\s+)(\w+)(\s+)(\w+)(\s+)(\w+)(\s+)(\w+)(\s+)/;
+		if ($1 eq 'ATOM' && $5 eq 'CA')
 		{
-			if ($rtyp eq 'ALA') {$rtyp_1="A";}
-			elsif ($rtyp eq 'ARG') {$rtyp_1="R";}
-			elsif ($rtyp eq 'ASN') {$rtyp_1="N";}
-			elsif ($rtyp eq 'ASP') {$rtyp_1="D";}
-			elsif ($rtyp eq 'CYS') {$rtyp_1="C";}
-			elsif ($rtyp eq 'GLN') {$rtyp_1="Q";}
-			elsif ($rtyp eq 'GLU') {$rtyp_1="E";}
-			elsif ($rtyp eq 'GLY') {$rtyp_1="G";}
-			elsif ($rtyp eq 'HIS') {$rtyp_1="H";}
-			elsif ($rtyp eq 'ILE') {$rtyp_1="I";}
-			elsif ($rtyp eq 'LEU') {$rtyp_1="L";}
-			elsif ($rtyp eq 'LYS') {$rtyp_1="K";}
-			elsif ($rtyp eq 'MET') {$rtyp_1="M";}
-			elsif ($rtyp eq 'PHE') {$rtyp_1="F";}
-			elsif ($rtyp eq 'PRO') {$rtyp_1="P";}
-			elsif ($rtyp eq 'SER') {$rtyp_1="S";}
-			elsif ($rtyp eq 'THR') {$rtyp_1="T";}
-			elsif ($rtyp eq 'TRP') {$rtyp_1="W";}
-			elsif ($rtyp eq 'TYR') {$rtyp_1="Y";}
-			elsif ($rtyp eq 'VAL') {$rtyp_1="V";}
+			if ($7 eq 'ALA') {$rtyp_1="A";}
+			elsif ($7 eq 'ARG') {$rtyp_1="R";}
+			elsif ($7 eq 'ASN') {$rtyp_1="N";}
+			elsif ($7 eq 'ASP') {$rtyp_1="D";}
+			elsif ($7 eq 'CYS') {$rtyp_1="C";}
+			elsif ($7 eq 'GLN') {$rtyp_1="Q";}
+			elsif ($7 eq 'GLU') {$rtyp_1="E";}
+			elsif ($7 eq 'GLY') {$rtyp_1="G";}
+			elsif ($7 eq 'HIS') {$rtyp_1="H";}
+			elsif ($7 eq 'ILE') {$rtyp_1="I";}
+			elsif ($7 eq 'LEU') {$rtyp_1="L";}
+			elsif ($7 eq 'LYS') {$rtyp_1="K";}
+			elsif ($7 eq 'MET') {$rtyp_1="M";}
+			elsif ($7 eq 'PHE') {$rtyp_1="F";}
+			elsif ($7 eq 'PRO') {$rtyp_1="P";}
+			elsif ($7 eq 'SER') {$rtyp_1="S";}
+			elsif ($7 eq 'THR') {$rtyp_1="T";}
+			elsif ($7 eq 'TRP') {$rtyp_1="W";}
+			elsif ($7 eq 'TYR') {$rtyp_1="Y";}
+			elsif ($7 eq 'VAL') {$rtyp_1="V";}
 			else  {print "STDERR : Unkown aminoacid in sequence\n";}
 			$pdb_seq=$pdb_seq.$rtyp_1;
-			$pdb_pos="$pdb_pos $resid";
+			$pdb_pos="$pdb_pos $11";
 		}
 	}
 		push (@pdbseq,"$pdb_seq");
@@ -238,12 +229,6 @@ for ($ipdb=0;$ipdb<=$ia-1;$ipdb++)
 		$pdb_seq="";
 		$pdb_pos="";
 }
-
-#my $itest;
-#for ($itest=0;$itest<=$ia-1;$itest++)
-#{
-#print @pdbseq[$itest],"\n";
-#}
 
 ############################################################################
 # 5th step
@@ -265,20 +250,17 @@ for ($ik=0;$ik<=$ia-1;$ik++)
 	{ 
 		$nogap=0;
 		$noseq=0;
-		for ($gap=0;$gap<=int(0.05*length(@fastaseq[$ik]));$gap++)
+		for ($gap=0;$gap<=int($cov*length($fastaseq[$ik]));$gap++)
 # Test on the coverage of the sequences : number of residues in Nter that could be missing !!!
 		{
-#		if (length(@fastaseq[$ik])>=20) {$sw=20;}
-#		if (length(@fastaseq[$ik])<20) {$sw=10;}
-		if (length(@fastaseq[$ik])<10) { print "STDERR : Sequence length is too short\n"; }
-#		print "Sliding window size : $sw\n";
+		if (length($fastaseq[$ik])<10) { print "STDERR : Sequence length is too short\n"; }
 			if ($nogap<1)
 			{
-			        my $window1=substr(@fastaseq[$ik],$gap,$sw);
+				my $window1=substr($fastaseq[$ik],$gap,$sw);
 #				print "WINDOW1 : $window1\n";
-				for ($il=0;$il<=length(@pdbseq[$ik])-$sw;$il++)
+				for ($il=0;$il<=length($pdbseq[$ik])-$sw;$il++)
 				{
-					my $window2=substr(@pdbseq[$ik],$il,$sw);
+					my $window2=substr($pdbseq[$ik],$il,$sw);
 #					print "WINDOW2 : $window2\n";
 					$id=0;
 					for ($im=0;$im<=$sw-1;$im++)
@@ -289,13 +271,17 @@ for ($ik=0;$ik<=$ia-1;$ik++)
 						}
 					}
 # Test on the identity of the sliding window : number of differences tolerated !!
-					if ($id>=int(0.90*$sw))
+					my $test=($idt*$sw);
+					if ($id>=($idt*$sw))
 					{
+#						print " $window2 $id GOOD HIT >90% identity\n";
 						$noseq++;
 						$nogap++;
-						$nores=$il-@pdbpos[$ik];
-						$boundary1=@pdbpos[$ik]+$il;
-						$boundary2=length(@fastaseq[$ik])+$boundary1-1;
+						$nores=$il-$pdbpos[$ik];
+						$boundary1=$pdbpos[$ik]+$il;
+#						print "FIRST LIMIT $boundary1 \n";
+						$boundary2=length($fastaseq[$ik])+$boundary1-1;
+#						print "FINAL LIMIT $boundary2 \n";
 				
 					}
 				}
@@ -305,42 +291,35 @@ for ($ik=0;$ik<=$ia-1;$ik++)
 # Then the sequence is removed from the fasta file and from the template file !!! 
 		if ($noseq<1)
 		{
-			print "STDERR : For @tmppdb[$ik], difference between Pfam and PDB sequences\n";
+			print "STDERR : For $tmppdb[$ik], difference between Pfam and PDB sequences\n";
 		}
 		if ($noseq>0)
 		{
 # Filtering on the length of the sequences if too short (cut) or too long (extra)
-			if ( (length(@fastaseq[$ik])>$sl*int($avr)) && (length(@fastaseq[$ik])<$sh*int($avr)))
+			if ( (length($fastaseq[$ik])>$sl*int($avr)) && (length($fastaseq[$ik])<$sh*int($avr)))
 			{
-				print TMP_MODIF ">@tmpname[$ik]/@tmpnter[$ik]-@tmpcter[$ik] _P_ @tmppdb[$ik]\n";
-				print FASTA_MODIF ">@tmpname[$ik]/@tmpnter[$ik]-@tmpcter[$ik]\n";
-				print FASTA_MODIF "@fastaseq[$ik]\n";
+				print TMP_MODIF ">$tmpname[$ik]/$tmpnter[$ik]-$tmpcter[$ik] _P_ $tmppdb[$ik]\n";
+				print FASTA_MODIF ">$tmpname[$ik]/$tmpnter[$ik]-$tmpcter[$ik]\n";
+				print FASTA_MODIF "$fastaseq[$ik]\n";
 			}
-			if (length(@fastaseq[$ik])<($sl*int($avr)))
+			if (length($fastaseq[$ik])<($sl*int($avr)))
 			{
-				print "STDERR : For @tmppdb[$ik], sequence is too short\n";
+				print "STDERR : For $tmppdb[$ik], sequence is too short\n";
 			}
-			if (length(@fastaseq[$ik])>($sh*int($avr)))
+			if (length($fastaseq[$ik])>($sh*int($avr)))
 			{
-				print "STDERR : For @tmppdb[$ik], sequence is too long\n";
+				print "STDERR : For $tmppdb[$ik], sequence is too long\n";
 			}
 		}
-		open (PDB_FILE,"@tmppdb[$ik].pdb");
-		my $pdb_temp="@tmppdb[$ik]_cut.pdb";
+		open (PDB_FILE,"$tmppdb[$ik].pdb");
+		my $pdb_temp="$tmppdb[$ik]_cut.pdb";
 		open (PDB_TEMP,">$pdb_temp");
 		my $iseq=0;
 		my $ires=0;
-		my @fm2;
-	        while (my $line4=<PDB_FILE>)
-      		{
-                my @fm2=split("",$line4);
-                my $field2 = ("@fm2[0]"."@fm2[1]"."@fm2[2]"."@fm2[3]"."@fm2[4]"."@fm2[5]");
-                my $pos2 = ("@fm2[6]"."@fm2[7]"."@fm2[8]"."@fm2[9]"."@fm2[10]");
-                my $atyp2 = ("@fm2[12]"."@fm2[13]"."@fm2[14]"."@fm2[15]");
-                my $rtyp2 = ("@fm2[17]"."@fm2[18]"."@fm2[19]");
-                my $chid2 = ("@fm2[21]");
-                my $resid2 = ("@fm2[22]"."@fm2[23]"."@fm2[24]"."@fm2[25]");
-			if ($field2 eq 'SEQRES') 
+		while (my $line4=<PDB_FILE>)
+		{
+			$line4=~/(\w+)(\s+)(\w+)(\s+)(\w+)(\s+)(\w+)(\s+)(\w+)(\s+)(\w+)(\s+)/;
+			if ($1 eq 'SEQRES') 
 			{
 # The number 13 corresponds to the number of residues in one line of the SEQRES field
 # Only the SEQRES line corresponding to the sequence are kept
@@ -349,12 +328,14 @@ for ($ik=0;$ik<=$ia-1;$ik++)
 				if ($ires>=$nores) { print PDB_TEMP $line4; }
 			}
 # Select the PDB part corresponding to the PFAM sequences using the boundaries resid
-                	if ($field2 ne 'ATOM  ' && $field2 ne 'SEQRES') { print PDB_TEMP $line4; }
-			if ($field2 eq 'ATOM  ' && $resid2>=$boundary1 && $resid2<=$boundary2) { print PDB_TEMP $line4; }
+			if ($1 ne 'ATOM' && $1 ne 'SEQRES') { print PDB_TEMP $line4; }
+#			print "$pdb_temp... $1 $3 $5 $7 $9 $11\n";
+#			print "FIRST : $boundary1 / LAST : $boundary2 \n";
+			if ($1 eq 'ATOM' && $11>=$boundary1 && $11<=$boundary2) { print PDB_TEMP $line4; }
 		}
 		close (PDB_FILE);
 		close (PDB_TEMP);
-		move ("@tmppdb[$ik]_cut.pdb","@tmppdb[$ik].pdb");
+		move ("$tmppdb[$ik]_cut.pdb","$tmppdb[$ik].pdb");
 	}
 
 #############################################################################
@@ -365,13 +346,13 @@ my $in;
 
 for ($in=0;$in<=$ia-1;$in++)
 { 
-	my $loadline="load  @tmppdb[$in].pdb , @tmppdb[$in]\n";
+	my $loadline="load  $tmppdb[$in].pdb , $tmppdb[$in]\n";
 	print PML_SCRPT $loadline; 
 }
 
 for ($in=0;$in<=$ia-1;$in++)
 { 
-	my $superline="super @tmppdb[$in] ,  @tmppdb[$1]\n";
+	my $superline="super $tmppdb[$in] ,  $tmppdb[$1]\n";
 	print PML_SCRPT $superline; 
 }
 
@@ -386,5 +367,5 @@ close(TMP_INIT);
 close(TMP_MODIF); 
 close(PML_SCRPT); 
 close(FASTA); 
-close (FASTA_MODIF);
+close(FASTA_MODIF);
 close(PDB_FILE);
