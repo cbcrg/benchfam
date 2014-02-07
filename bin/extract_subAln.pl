@@ -7,17 +7,15 @@ if($largeSeq_file=~/.*\/(.*)\.aln/){  $largeSeq_file_name=$1; }
 
 $out_file=$subSeq_file_name."_".$largeSeq_file_name.".fa";
 $erout_file="$subSeq_file_name"."_error.log";
-open OUT, ">$out_file";
-open EROUT,">>$erout_file";
 
 $i=0;
 %hashStru=(); 
 open SUBseq, $subSeq_file;
 while (<SUBseq>)
 { 
-    if($_=~/^#.*/){ next; }
+    if($_=~/^#.*/){ last; }
     if($_=~/^(.*)\s\d+.*/){ 
-	$hashStru{$1}=$i;
+	$hashStru{$1}=$i; 
 	$i++;
     } 
 }
@@ -25,7 +23,9 @@ while (<SUBseq>)
 
 $/=">";
 %hashFinal=(); 
+%NOThashFinal=();
 open LARGEseq, $largeSeq_file;
+$not=0;
 while (<LARGEseq>)
 {   
     $entry=$_;
@@ -36,15 +36,23 @@ while (<LARGEseq>)
     #$sequence=~s/\n//g;
    
     if ($title ne "")
-    {   
+    {   #$sequence=~s/-//g; $sequence=~s/\n//g; 
 	if( exists $hashStru{$title} ){  $hashFinal{$title}=$sequence;  }
+	#else{  if($not<40){ $NOThashFinal{$title}=$sequence; $not++; } }
     }
 }
 $/="\n";
 
-foreach $key( sort { $hashStru{$a} <=> $hashStru{$b} } (keys %hashStru) ){ print OUT ">".$key."\n".$hashFinal{$key};  }
-
-##### --- NOT NECESSARY! This is to check if all seqs in lib exist in the large scale MSA --- #####
-foreach $key( sort { $hashStru{$a} <=> $hashStru{$b} } (keys %hashStru) ){ 
-  if( !exists $hashFinal{$key}) { print EROUT "This sequence didn't exist in the large scale MSA: $key \n"; }
+if (%hashFinal){
+	open OUT, ">$out_file";
+	foreach $key( sort { $hashStru{$a} <=> $hashStru{$b} } (keys %hashStru) ){ print OUT ">".$key."\n".$hashFinal{$key}."\n";  }
+	#foreach $key2 (keys %NOThashFinal){ print OUT ">".$key2."\n".$NOThashFinal{$key2}."\n";  }
+	close OUT;
+}
+else{
+	##### --- NOT NECESSARY! This is to check if all seqs in lib exist in the large scale MSA --- #####
+	open EROUT,">>$erout_file";
+	foreach $key( sort { $hashStru{$a} <=> $hashStru{$b} } (keys %hashStru) ){ 
+  		if( !exists $hashFinal{$key}) { print EROUT "This sequence didn't exist in the large scale MSA: $key \n"; }
+	}
 }
