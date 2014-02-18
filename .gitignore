@@ -1,3 +1,6 @@
 .nextflow.log*
+log
+db/*
 fam/
 work/
+

@@ -1,43 +1,68 @@
 #!/usr/env nextflow
 
-params.pfamPath = 'tutorial/dataset/PF00005/20130714/INPUT/PF00005.fasta'
 params.blastDb = "/db/pdb/derived_data_format/blast/latest/pdb_seqres.fa"
-params.cpus = 4
+params.cpus = 1
+params.pfamFullGz = '/db/pfam/latest/Pfam-A.full.gz'
+params.limit = '50'
+params.dbCache = 'db'
 
-
-allMethods = ['mafft','clustalo']
+all_methods = ['mafft','clustalo']
 
 
 // -- create a couple of channel
 // 'dataset' emits all the PFAM fasta file to process
 // 'famNames' emits the unique PFAM familiy names
-famNames = Channel.create()
-sequencesFile = Channel.create()
-structureFile = Channel.create()
-
-Channel
-        .path( params.pfamPath )
-        .tap( structureFile )
-        .map { path -> path.baseName }
-        .unique()
-        .tap(famNames)
-        .map { [ it, file( "tutorial/${it}.fa" ) ] }  // emits a tuple having this items ( family name, fasta file )
-        .into (sequencesFile)
 
 
+db_pdb = file(params.dbCache).resolve('pdb') 
+db_full = file(params.dbCache).resolve('full')
 expresso_params = "-blast=LOCAL -pdb_db=${params.blastDb}" 
 
+/* 
+ * Uncompress the PFAM database extracing only sequences with structures
+ */
+process extractPdb {
+  storeDir db_pdb  
 
+  output: 
+  file '*_pdb.fasta' into pdb_files mode flatten
+
+  """
+  gzip -c -d ${params.pfamFullGz} | PFAM_extract_full.pl PDB ${params.limit} -
+  for x in *.fasta; do [ `grep '>' \$x -c` -lt 10 ] && rm \$x; done
+  """
+}
+
+/* 
+ * Uncompress the PFAM database extracing ALL sequences
+ */
+process extractFull {
+  storeDir db_full
+
+  output: 
+  file '*_full.fasta' into full_files mode flatten
+
+  """
+  gzip -c -d ${params.pfamFullGz} | PFAM_extract_full.pl FULL ${params.limit} -
+  """
+}
+
+
+
+/* 
+ * receive in input the PFXXXX_pdb.fasta
+ */
 process filter {
 
     input:
-    file fasta from structureFile
+    file fasta from pdb_files
 
     output:
-    set ( fam, 'temp.list', 'temp.fasta', '*.pdb') into tempStruct
+    set ( fam, 'temp.list', 'temp.fasta', '*.pdb') into temp_struct
 
     script:
-    fam = fasta.baseName
+    fam = fasta.baseName.endsWith('_pdb') ? fasta.baseName.replace('_pdb','') : fasta.baseName   
+
     """
     mkdir OUTPUT
     t_coffee -other_pg seq_reformat -in $fasta -action +trim _seq_%%99_ > data_99.fasta
@@ -51,11 +76,11 @@ process filter {
 
 process pdb_extract {
     input:
-    set ( fam, 'temp.list','temp.fasta','*') from tempStruct
+    set ( fam, 'temp.list','temp.fasta','*') from temp_struct
 
     output:
-    set ( fam, 'modified.template','modified.fasta'  ) into modifiedStruct
-
+    set ( fam, 'modified.template','modified.fasta', '*-1.pdb' ) into modified_struct
+	set ( fam, 'modified.fasta' ) into seq3d
     """
     PDB_extract.pl
     """
@@ -65,11 +90,11 @@ process pdb_extract {
 process Lib_and_Aln {
 
     input:
-    set ( fam, 'modified.template', 'modified.fasta' ) from modifiedStruct
+    set ( fam, 'modified.template', 'modified.fasta', '*' ) from modified_struct
 
     output:
     file '*_irmsd' into irmsd_files
-    set (fam, 'sap.lib:mustang.lib:tmalign.lib' ) into libFiles
+    set (fam, 'sap.lib:mustang.lib:tmalign.lib' ) into lib_files
 
     """
     cp modified.fasta sap.fasta
@@ -151,21 +176,51 @@ process Lib_and_Aln {
     """
 }
 
+/* 
+ * - Discards all the fasta files having less than 10 sequences 
+ * - Collects all the family names for which there are at least 10 sequences and
+ *   sends these names over the channel 'fam_names' 
+ * - Sends tuple ( family name, fasta file ) over the channel 'fam_full'
+ */
+
+fam_full = Channel.create()
+fam_names = Channel.create()
+
+seq3d
+	.filter { tuple -> 
+		def file = tuple[1]
+		int count = 0
+		file.chopFasta { count++ } 
+		return count >= 10 
+	}
+	
+	.map { fam, file -> fam }
+	
+	.separate( fam_names, fam_full ) {  fam ->
+		def fasta = db_full.resolve("${fam}_full.fasta")
+		if( !fasta.exists() ) 
+			log.warm "Missing file: $fasta"
+		[  fam, [fam, fasta] ] 
+	}
+
 
 /*
  * Apply a MSA step
+ * 
+ * it received in input the PFXXXX_full.fasta
  */
+ 
 process Large_scale_MSAs {
 
     input:
-    set (famName, file(sequences)) from sequencesFile
-    each method from allMethods
+    set (fam, file(sequences)) from fam_full
+    each method from all_methods
 
     output:
-    set (famName, '*.aln') into largeMsa
+    set (fam, '*.aln') into large_msa
 
     script:
-    alnName = "${famName}_${method}.aln"
+    alnName = "${fam}_${method}.aln"
     if( method=='mafft')
         """
         mafft --anysymbol --parttree --thread ${params.cpus} --quiet ${sequences} > $alnName
@@ -181,55 +236,61 @@ process Large_scale_MSAs {
 
 }
 
-libPhased = famNames
-        .phase( libFiles )
+fam_lib = fam_names
+        .phase( lib_files )
         .map { fam, lib ->  lib }
 
 process splib {
     input:
-    set ( famName, '*' ) from libPhased
+    set ( fam, '*' ) from fam_lib
 
     output:
-    set (famName,'*.sp_lib') into spLib
+    set (fam,'*.sp_lib') into sp_lib
 
     """
-    t_coffee -lib sap.lib mustang.lib tmalign.lib -output sp_lib -outfile ${famName}.sp_lib
+    t_coffee -lib sap.lib mustang.lib tmalign.lib -output sp_lib -outfile ${fam}.sp_lib
     """
 }
 
 
-// -- split the channel in two to handle them separately
-(spLib1, spLib2) = spLib.split(2)
+/* 
+ * split the channel in two to handle them separately
+ */
+ 
+(sp_lib1, sp_lib2) = sp_lib.split(2)
+
+/* 
+ * - Join each lib1 with the large msa for the corresponding family name 
+ * - Create a channel named 'lib_and_msa' that will emit tuples like ( familyName, sp_lib file, alignment file ) 
+ */ 
+lib_and_msa = sp_lib1
+				.cross(large_msa)
+				.map { lib, aln -> [ lib[0], lib[1], aln[1] ] }    
 
 
-tick = spLib1
-        .cross(largeMsa)
-        .map { lib, aln -> [ lib[0], lib[1], aln[1] ] }     // ( familyName, sp_lib file, alignment file )
-
-
-process extractedMSA {
+process Extracted_msa {
 
     input:
-    set famName, file(splib), file(aln) from tick
+    set fam, file(splib), file(aln) from lib_and_msa
 
     output:
-    set famName, '*.extracted_msa' into extractedMsa
+    set fam, '*.extracted_msa' into extracted_msa
 
 
     """
     extract_subAln.pl \$PWD/${splib} \$PWD/${aln}
 
-    #if [ -s ${famName}_error.log ]; then
-    # echo There are erros in the log file. Check ${famName}_error.log
+    #if [ -s ${fam}_error.log ]; then
+    # echo There are erros in the log file. Check ${fam}_error.log
     # exit 1
     #fi
-    mv ${famName}_${aln.baseName}.fa ${famName}_${aln.baseName}.extracted_msa
+    mv ${fam}_${aln.baseName}.fa ${fam}_${aln.baseName}.extracted_msa
     """
 }
 
 
-msa_eval = spLib2
-        .cross(extractedMsa)
+msa_eval = sp_lib2
+        .cross(extracted_msa)
         .map { lib,aln -> [ lib[0], lib[1], aln[1] ] }  //  ( familyName, sp_lib file, alignment file )
 
 process evaluate {
