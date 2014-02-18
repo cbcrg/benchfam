@@ -48,6 +48,9 @@ process extractFull {
 }
 
 
+full_files2 = full_files.map { file -> [ file.baseName.replace('_full',''), file ] }
+
+
 
 /* 
  * receive in input the PFXXXX_pdb.fasta
@@ -196,12 +199,10 @@ seq3d
 	
 	.map { fam, file -> fam }
 	
-	.separate( fam_names, fam_full ) {  fam ->
-		def fasta = db_full.resolve("${fam}_full.fasta")
-		if( !fasta.exists() ) 
-			log.warm "Missing file: $fasta"
-		[  fam, [fam, fasta] ] 
-	}
+	.phase( full_files2 ) 
+	.map { f, t ->  [ f, t ]  }
+	.separate( fam_names, fam_full ) { it }
+
 
 
 /*
@@ -307,10 +308,24 @@ process evaluate {
 
 }
 
-evaluation.subscribe { tuple ->
-
-    println "Family: ${tuple[0]}; Method: ${tuple[1]}; score: ${tuple[2].text.trim().readLines()[1].split(/\s+/)[3]}"
-    println '\n\n'
-
+scores = evaluation
+           .map { tuple -> tuple[2] = getScore(tuple[2].text); tuple }
+           .groupBy { it[0] }
+		   .subscribe{ println it }
+/* 
+ * Extract the score value from the result file 
+ */
+def getScore(String text) {
+	def lines = text.trim().readLines()
+	if( lines.size()<2 ) {
+	   log.warn "Not a valid score file:\n$text\n"
+	   return 0
+	}
+	def cols = lines[1].split(/\s+/)
+	if( cols.size() != 4 || !cols[3].isNumber()) {
+	  log.warn "Not a valid score file:\n$text\n"
+	  return 0
+	}
+	return cols[3]
 }
 
