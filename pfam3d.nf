@@ -217,7 +217,7 @@ process Large_scale_MSAs {
     each method from all_methods
 
     output:
-    set (fam, '*.aln') into large_msa
+    set (fam, method, '*.aln') into large_msa
 
     script:
     alnName = "${fam}_${method}.aln"
@@ -245,7 +245,7 @@ process splib {
     set ( fam, '*' ) from fam_lib
 
     output:
-    set (fam,'*.sp_lib') into sp_lib
+    set (fam, '*.sp_lib') into sp_lib
 
     """
     t_coffee -lib sap.lib mustang.lib tmalign.lib -output sp_lib -outfile ${fam}.sp_lib
@@ -261,20 +261,20 @@ process splib {
 
 /* 
  * - Join each lib1 with the large msa for the corresponding family name 
- * - Create a channel named 'lib_and_msa' that will emit tuples like ( familyName, sp_lib file, alignment file ) 
+ * - Create a channel named 'lib_and_msa' that will emit tuples like ( familyName, align method, sp_lib file, alignment file ) 
  */ 
 lib_and_msa = sp_lib1
 				.cross(large_msa)
-				.map { lib, aln -> [ lib[0], lib[1], aln[1] ] }    
+				.map { lib, aln -> [ lib[0], aln[1], lib[1], aln[2] ] }    
 
 
 process Extracted_msa {
 
     input:
-    set fam, file(splib), file(aln) from lib_and_msa
+    set fam, method, file(splib), file(aln) from lib_and_msa
 
     output:
-    set fam, '*.extracted_msa' into extracted_msa
+    set fam, method, '*.extracted_msa' into extracted_msa
 
 
     """
@@ -291,15 +291,15 @@ process Extracted_msa {
 
 msa_eval = sp_lib2
         .cross(extracted_msa)
-        .map { lib,aln -> [ lib[0], lib[1], aln[1] ] }  //  ( familyName, sp_lib file, alignment file )
+        .map { lib,aln -> [ lib[0], aln[1], lib[1], aln[2] ] }  //  ( familyName, method, sp_lib file, alignment file )
 
 process evaluate {
 
     input:
-    set family, file(splib), file(msa) from msa_eval
+    set family, method, file(splib), file(msa) from msa_eval
 
     output:
-    file '*.Res' into evaluation
+    set family, method, '*.Res' into evaluation
 
     """
    t_coffee -other_pg aln_compare -lib ${splib} -al2 ${msa} >> ${family}_evalution.Res
@@ -307,10 +307,9 @@ process evaluate {
 
 }
 
-evaluation.subscribe {
+evaluation.subscribe { tuple ->
 
-    println it.name
-    println it.text
+    println "Family: ${tuple[0]}; Method: ${tuple[1]}; score: ${tuple[2].text.trim().readLines()[1].split(/\s+/)[3]}"
     println '\n\n'
 
 }
