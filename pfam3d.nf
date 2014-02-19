@@ -40,7 +40,7 @@ params.cpus = 1
 all_methods = params.methods.split(',').collect { it.trim() }
 
 // -- the LOCAL BAST database required by T-Coffee
-expresso_params = "-blast=LOCAL -pdb_db=${params.blastDb}" 
+expresso_params = params.blastDb in ['NCBI','EBI'] ? "-blast=${params.blastDb}" :  "-blast=LOCAL -pdb_db=${params.blastDb}"
 
 // -- local paths where are stored sequence files extracted by the Pfam database 
 db_pdb = file(params.dbCache).resolve('pdb') 
@@ -57,7 +57,7 @@ log.info "dbCache			: ${params.dbCache}"
 log.info "limit				: ${params.limit}"
 log.info "methods			: ${params.methods}"
 log.info "cpus         		: ${params.cpus}"
-
+log.info "expresso_params	: ${expresso_params}"
 
 /* 
  * Uncompress the PFAM database extracing only sequences with structures
