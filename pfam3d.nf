@@ -1,22 +1,63 @@
 #!/usr/env nextflow
 
+/*
+ * Copyright (c) 2013, Centre for Genomic Regulation (CRG) and the authors.
+ *
+ *   This file is part of 'PFAM-EVAL'.
+ *
+ *   PFAM-EVAL is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   PFAM-EVAL is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with PFAM-EVAL.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
+/* 
+ * Main pipeline scrips 
+ * 
+ * @authors 
+ * Cedric Magis <cedrik.1978@gmail.com>ma
+ * Maria Chatzou <mxatzou@gmail.com>
+ * Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ */
+
 params.blastDb = "/db/pdb/derived_data_format/blast/latest/pdb_seqres.fa"
-params.cpus = 1
 params.pfamFullGz = '/db/pfam/latest/Pfam-A.full.gz'
-params.limit = '50'
-params.dbCache = 'db'
+params.dbCache = "db_${params.limit}"
+params.methods = 'mafft,clustalo'
+params.limit = 'all'
+params.cpus = 1
 
-all_methods = ['mafft','clustalo']
+// -- given a comma separated list of methods converts it to a list object 
+all_methods = params.methods.split(',').collect { it.trim() }
 
+// -- the LOCAL BAST database required by T-Coffee
+expresso_params = "-blast=LOCAL -pdb_db=${params.blastDb}" 
 
-// -- create a couple of channel
-// 'dataset' emits all the PFAM fasta file to process
-// 'famNames' emits the unique PFAM familiy names
-
-
+// -- local paths where are stored sequence files extracted by the Pfam database 
 db_pdb = file(params.dbCache).resolve('pdb') 
 db_full = file(params.dbCache).resolve('full')
-expresso_params = "-blast=LOCAL -pdb_db=${params.blastDb}" 
+
+
+// -- summary 
+
+log.info "P F A M  -  E V A L   ~   v. 1.0"
+log.info "================================"
+log.info "blastDb           : ${params.blastDb}"
+log.info "pfamFullGz		: ${params.pfamFullGz}"
+log.info "dbCache			: ${params.dbCache}"
+log.info "limit				: ${params.limit}"
+log.info "methods			: ${params.methods}"
+log.info "cpus         		: ${params.cpus}"
+
 
 /* 
  * Uncompress the PFAM database extracing only sequences with structures
@@ -198,7 +239,6 @@ seq3d
 	}
 	
 	.map { fam, file -> fam }
-	
 	.phase( full_files2 ) 
 	.map { f, t ->  [ f, t ]  }
 	.separate( fam_names, fam_full ) { it }
@@ -249,7 +289,7 @@ process splib {
     set (fam, '*.sp_lib') into sp_lib
 
     """
-    t_coffee -lib sap.lib mustang.lib tmalign.lib -output sp_lib -outfile ${fam}.sp_lib
+    t_coffee -lib sap.lib mustang.lib tmalign.lib -output sp_lib -outfile ${fam}.sp_lib -multi_core=${params.cpus}
     """
 }
 
@@ -302,30 +342,68 @@ process evaluate {
     output:
     set family, method, '*.Res' into evaluation
 
-    """
-   t_coffee -other_pg aln_compare -lib ${splib} -al2 ${msa} >> ${family}_evalution.Res
-   """
+	"""
+	t_coffee -other_pg aln_compare -lib ${splib} -al2 ${msa} >> ${family}_evalution.Res
+	"""
 
 }
 
 scores = evaluation
-           .map { tuple -> tuple[2] = getScore(tuple[2].text); tuple }
+           .map { tuple -> tuple[2] = getScore(tuple[2]); tuple }
            .groupBy { it[0] }
-		   .subscribe{ println it }
+		   .subscribe{ println renderTable(it,all_methods) }
+
 /* 
  * Extract the score value from the result file 
  */
-def getScore(String text) {
-	def lines = text.trim().readLines()
+def getScore(path) {
+	def lines = path.text.trim().readLines()
 	if( lines.size()<2 ) {
-	   log.warn "Not a valid score file:\n$text\n"
+	   log.warn "Not a valid score file: $path"
 	   return 0
 	}
 	def cols = lines[1].split(/\s+/)
 	if( cols.size() != 4 || !cols[3].isNumber()) {
-	  log.warn "Not a valid score file:\n$text\n"
+	  log.warn "Not a valid score file: $path"
 	  return 0
 	}
 	return cols[3]
 }
 
+/* 
+ * get a map like [ PFxxx: [  [PFxxx, mafft, score], [PFxxx, clustalo, score], ... ], ... ]   
+ * and render it to a text table
+ */
+def renderTable( Map map, methods ) {
+	def result = new StringBuilder()
+	def count = 0 
+	map.each { famName, allValues -> 
+        def head = count++ == 0 ? new String[allValues.size()+1] : null	
+		def row = new String[ allValues.size()+1 ]
+
+		row[0] = famName
+		if( head ) head[0] = 'Pfam'
+		
+		allValues.each { tuple -> 
+		    def methodName = tuple[1]
+			def index = methods.indexOf(methodName) +1
+			if( !index ) { log.warn "Unknown method while rendering results table: '$methodName'" }
+			row[index] = tuple[2]
+			if( head ) head[index] = methodName 
+		}
+
+		if( head ) result << ( head.join(',') ) << '\n'
+ 		result << (row.join(',')) << '\n'
+	}
+
+	return result.toString()
+}
+
+
+/*  
+ * A unit-test for the 'renderTable' function 
+ */
+def void testRenderTable() {
+   def map = [PF00389:[['PF00389', 'clustalo', 0.775], ['PF00389', 'mafft', 0.735]], PF02826:[['PF02826', 'clustalo', 0.808], ['PF02826', 'mafft', 0.813]], PF03061:[['PF03061', 'mafft', 0.533], ['PF03061', 'clustalo', 0.791]]]
+   assert renderTable(map,['mafft','clustalo']) == 'Pfam,mafft,clustalo\nPF00389,0.735,0.775\nPF02826,0.813,0.808\nPF03061,0.533,0.791\n'
+}
