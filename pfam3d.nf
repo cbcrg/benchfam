@@ -130,19 +130,42 @@ process pdb_extract {
     set ( fam, 'temp.list','temp.fasta','*') from temp_struct1
 
     output:
-    set ( fam, 'modified.template','modified.fasta', '*-1.pdb' ) into modified_struct
+    set ( fam, 'modified.fasta', 'modified.template', '*-1.pdb' ) into modified_struct
     set ( fam, 'modified.fasta' ) into seq3d
     """
     PDB_extract.pl
-    [ `grep '>' modified.fasta -c` -lt 10 ] && exit 1
     """
-
 }
+
+/*
+ * - Discards all the fasta files having less than 10 sequences
+ * - Collects all the family names for which there are at least 10 sequences and
+ *   sends these names over the channel 'fam_names'
+ * - Sends tuple ( family name, fasta file ) over the channel 'fam_full'
+ */
+
+fam_full = Channel.create()
+fam_names = Channel.create()
+modified_struct1 = Channel.create()
+
+modified_struct.filter { tuple ->
+            int count=0; tuple[1].chopFasta {count++}
+            def valid = count>=10
+            if( !valid )
+                log.info "Discarding family: ${tuple[0]} because 'PDB_extract' returns less than 10 structures"
+            return valid
+        }
+        .tap( modified_struct1 )
+        .map { tuple -> tuple[0] }
+        .phase( full_files2 )
+        .map { f, t ->  [ f, t ]  }
+        .separate( fam_names, fam_full ) { it }
+
 
 process Lib_and_Aln {
 
     input:
-    set ( fam, 'modified.template', 'modified.fasta', '*' ) from modified_struct
+    set ( fam, 'modified.fasta', 'modified.template', '*' ) from modified_struct1
 
     output:
     file '*_irmsd' into irmsd_files
@@ -227,29 +250,6 @@ process Lib_and_Aln {
     t_coffee -other_pg irmsd sate.aln -template_file modified.template > sate_irmsd
     """
 }
-
-/* 
- * - Discards all the fasta files having less than 10 sequences 
- * - Collects all the family names for which there are at least 10 sequences and
- *   sends these names over the channel 'fam_names' 
- * - Sends tuple ( family name, fasta file ) over the channel 'fam_full'
- */
-
-fam_full = Channel.create()
-fam_names = Channel.create()
-
-seq3d
-    .filter { tuple ->
-        def file = tuple[1]
-        int count = 0
-        file.chopFasta { count++ }
-        return count >= 10
-    }
-
-    .map { fam, file -> fam }
-    .phase( full_files2 )
-    .map { f, t ->  [ f, t ]  }
-    .separate( fam_names, fam_full ) { it }
 
 
 
