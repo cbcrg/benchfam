@@ -52,12 +52,12 @@ db_full = file(params.dbCache).resolve('full')
 log.info "P F A M  -  E V A L   ~   v. 1.0"
 log.info "================================"
 log.info "blastDb           : ${params.blastDb}"
-log.info "pfamFullGz		: ${params.pfamFullGz}"
-log.info "dbCache			: ${params.dbCache}"
-log.info "limit				: ${params.limit}"
-log.info "methods			: ${params.methods}"
-log.info "cpus         		: ${params.cpus}"
-log.info "expresso_params	: ${expresso_params}"
+log.info "pfamFullGz        : ${params.pfamFullGz}"
+log.info "dbCache           : ${params.dbCache}"
+log.info "limit             : ${params.limit}"
+log.info "methods           : ${params.methods}"
+log.info "cpus              : ${params.cpus}"
+log.info "expresso_params   : ${expresso_params}"
 
 /* 
  * Uncompress the PFAM database extracing only sequences with structures
@@ -131,7 +131,7 @@ process pdb_extract {
 
     output:
     set ( fam, 'modified.template','modified.fasta', '*-1.pdb' ) into modified_struct
-	set ( fam, 'modified.fasta' ) into seq3d
+    set ( fam, 'modified.fasta' ) into seq3d
     """
     PDB_extract.pl
     [ `grep '>' modified.fasta -c` -lt 10 ] && exit 1
@@ -239,17 +239,17 @@ fam_full = Channel.create()
 fam_names = Channel.create()
 
 seq3d
-	.filter { tuple -> 
-		def file = tuple[1]
-		int count = 0
-		file.chopFasta { count++ } 
-		return count >= 10 
-	}
-	
-	.map { fam, file -> fam }
-	.phase( full_files2 ) 
-	.map { f, t ->  [ f, t ]  }
-	.separate( fam_names, fam_full ) { it }
+    .filter { tuple ->
+        def file = tuple[1]
+        int count = 0
+        file.chopFasta { count++ }
+        return count >= 10
+    }
+
+    .map { fam, file -> fam }
+    .phase( full_files2 )
+    .map { f, t ->  [ f, t ]  }
+    .separate( fam_names, fam_full ) { it }
 
 
 
@@ -313,8 +313,8 @@ process splib {
  * - Create a channel named 'lib_and_msa' that will emit tuples like ( familyName, align method, sp_lib file, alignment file ) 
  */ 
 lib_and_msa = sp_lib1
-				.cross(large_msa)
-				.map { lib, aln -> [ lib[0], aln[1], lib[1], aln[2] ] }    
+                .cross(large_msa)
+                .map { lib, aln -> [ lib[0], aln[1], lib[1], aln[2] ] }
 
 
 process Extracted_msa {
@@ -350,32 +350,32 @@ process evaluate {
     output:
     set family, method, '*.Res' into evaluation
 
-	"""
-	t_coffee -other_pg aln_compare -lib ${splib} -al2 ${msa} >> ${family}_evalution.Res
-	"""
+    """
+    t_coffee -other_pg aln_compare -lib ${splib} -al2 ${msa} >> ${family}_evalution.Res
+    """
 
 }
 
 scores = evaluation
            .map { tuple -> tuple[2] = getScore(tuple[2]); tuple }
            .groupBy { it[0] }
-		   .subscribe{ println renderTable(it,all_methods) }
+           .subscribe{ println renderTable(it,all_methods) }
 
 /* 
  * Extract the score value from the result file 
  */
 def getScore(path) {
-	def lines = path.text.trim().readLines()
-	if( lines.size()<2 ) {
-	   log.warn "Not a valid score file: $path"
-	   return 0
-	}
-	def cols = lines[1].split(/\s+/)
-	if( cols.size() != 4 || !cols[3].isNumber()) {
-	  log.warn "Not a valid score file: $path"
-	  return 0
-	}
-	return cols[3]
+    def lines = path.text.trim().readLines()
+    if( lines.size()<2 ) {
+       log.warn "Not a valid score file: $path"
+       return 0
+    }
+    def cols = lines[1].split(/\s+/)
+    if( cols.size() != 4 || !cols[3].isNumber()) {
+      log.warn "Not a valid score file: $path"
+      return 0
+    }
+    return cols[3]
 }
 
 /* 
@@ -383,28 +383,28 @@ def getScore(path) {
  * and render it to a text table
  */
 def renderTable( Map map, methods ) {
-	def result = new StringBuilder()
-	def count = 0 
-	map.each { famName, allValues -> 
+    def result = new StringBuilder()
+    def count = 0
+    map.each { famName, allValues ->
         def head = count++ == 0 ? new String[allValues.size()+1] : null	
-		def row = new String[ allValues.size()+1 ]
+        def row = new String[ allValues.size()+1 ]
 
-		row[0] = famName
-		if( head ) head[0] = 'Pfam'
-		
-		allValues.each { tuple -> 
-		    def methodName = tuple[1]
-			def index = methods.indexOf(methodName) +1
-			if( !index ) { log.warn "Unknown method while rendering results table: '$methodName'" }
-			row[index] = tuple[2]
-			if( head ) head[index] = methodName 
-		}
+        row[0] = famName
+        if( head ) head[0] = 'Pfam'
 
-		if( head ) result << ( head.join(',') ) << '\n'
- 		result << (row.join(',')) << '\n'
-	}
+        allValues.each { tuple ->
+            def methodName = tuple[1]
+            def index = methods.indexOf(methodName) +1
+            if( !index ) { log.warn "Unknown method while rendering results table: '$methodName'" }
+            row[index] = tuple[2]
+            if( head ) head[index] = methodName
+        }
 
-	return result.toString()
+        if( head ) result << ( head.join(',') ) << '\n'
+        result << (row.join(',')) << '\n'
+    }
+
+    return result.toString()
 }
 
 
