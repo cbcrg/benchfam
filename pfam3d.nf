@@ -39,12 +39,13 @@ params.cpus = 1
 // -- given a comma separated list of methods converts it to a list object 
 all_methods = params.methods.split(',').collect { it.trim() }
 
-// -- the LOCAL BAST database required by T-Coffee
-expresso_params = params.blastDb in ['NCBI','EBI'] ? "-blast=${params.blastDb}" :  "-blast=LOCAL -pdb_db=${params.blastDb}"
-
 // -- local paths where are stored sequence files extracted by the Pfam database 
 db_pdb = file(params.dbCache).resolve('pdb') 
 db_full = file(params.dbCache).resolve('full')
+
+// -- the LOCAL BAST database required by T-Coffee
+db_blast = file(params.blastDb)
+expresso_params = params.blastDb in ['NCBI','EBI'] ? "-blast=${db_blast}" :  "-blast=LOCAL -pdb_db=${db_blast}"
 
 
 // -- summary 
