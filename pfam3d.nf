@@ -21,7 +21,7 @@
 
 
 /* 
- * Main pipeline scrips 
+ * Main pipeline script 
  * 
  * @authors 
  * Cedric Magis <cedrik.1978@gmail.com>ma
@@ -29,11 +29,11 @@
  * Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
+params.limit = 'all'
 params.blastDb = "/db/pdb/derived_data_format/blast/latest/pdb_seqres.fa"
 params.pfamFullGz = '/db/pfam/latest/Pfam-A.full.gz'
 params.dbCache = "db_${params.limit}"
 params.methods = 'mafft,clustalo'
-params.limit = 'all'
 params.cpus = 1
 
 // -- given a comma separated list of methods converts it to a list object 
@@ -97,6 +97,7 @@ full_files2 = full_files.map { file -> [ file.baseName.replace('_full',''), file
  * receive in input the PFXXXX_pdb.fasta
  */
 process filter {
+     errorStrategy 'ignore'
 
     input:
     file fasta from pdb_files
@@ -108,25 +109,32 @@ process filter {
     fam = fasta.baseName.endsWith('_pdb') ? fasta.baseName.replace('_pdb','') : fasta.baseName   
 
     """
-    mkdir OUTPUT
     t_coffee -other_pg seq_reformat -in $fasta -action +trim _seq_%%99_ > data_99.fasta
     t_coffee data_99.fasta -mode expresso -pdb_type d -pdb_min_sim 95 -pdb_min_cov 95 -multi_core=${params.cpus} -cache \$PWD $expresso_params
-    mv *tmp *results *dnd *html plot.rms OUTPUT
-    grep _P_  *_pdb1.template_list > temp.list
-    t_coffee -other_pg seq_reformat -in data_99.fasta -action +extract_seq_list temp.list > temp.fasta
+    grep _P_  *_pdb1.template_list > temp.list || true
+    if [ -s temp.list ]; then
+      t_coffee -other_pg seq_reformat -in data_99.fasta -action +extract_seq_list temp.list > temp.fasta
+    else 
+      touch temp.fasta 
+    fi 
     """
 }
 
+// -- discards all the empty results
+temp_struct1 = temp_struct.filter {  tuple -> !tuple[1].empty() }  
 
 process pdb_extract {
+     errorStrategy 'ignore'
+
     input:
-    set ( fam, 'temp.list','temp.fasta','*') from temp_struct
+    set ( fam, 'temp.list','temp.fasta','*') from temp_struct1
 
     output:
     set ( fam, 'modified.template','modified.fasta', '*-1.pdb' ) into modified_struct
 	set ( fam, 'modified.fasta' ) into seq3d
     """
     PDB_extract.pl
+    [ `grep '>' modified.fasta -c` -lt 10 ] && exit 1
     """
 
 }
