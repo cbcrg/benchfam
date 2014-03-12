@@ -2,7 +2,7 @@ FROM fedora
 
 MAINTAINER Paolo Di Tommaso <paolo.ditommaso@gmail.com>
 
-RUN yum install -q -y wget nano make gcc g++ gcc-gfortran expat-devel perl-CPAN perl-Net-SSLeay perl-IO-Socket-SSL openssl-devel unzip python-setuptools; \
+RUN yum install -q -y which wget nano make gcc g++ gcc-gfortran expat-devel perl-CPAN perl-Net-SSLeay perl-IO-Socket-SSL openssl-devel unzip python-setuptools; \
   wget -q -O cpanm http://cpanmin.us; \
   chmod +x cpanm && mv cpanm bin/; \
   cpanm -q -n Net::SSLeay XML::Simple SOAP::Lite
@@ -34,7 +34,8 @@ RUN easy_install -U dendropy; \
     cd satesrc-v2.2.7-2013Feb15/sate-core/; \
     python setup.py develop; \
     cd /opt; \
-    ln -s /opt/satesrc-v2.2.7-2013Feb15/sate-core/ /opt/sate; 
+    rm satesrc-v2.2.7-2013Feb15.tar.gz; \
+    ln -s /opt/satesrc-v2.2.7-2013Feb15 /opt/sate; 
 
 RUN wget -q http://www.tcoffee.org/Packages/Stable/Latest/linux/T-COFFEE_installer_Version_10.00.r1613_linux_x64.bin; \
   chmod +x T-COFFEE_*; \
@@ -43,10 +44,12 @@ RUN wget -q http://www.tcoffee.org/Packages/Stable/Latest/linux/T-COFFEE_install
   rm -rf .bash*; 
   
   
-ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/blast/bin:/opt/sate/bin:/opt/tcoffee/bin
+ENV SATE_HOME /opt/sate/
+
 ENV DIR_4_TCOFFEE /opt/tcoffee
 ENV CACHE_4_TCOFFEE /.t_coffee/cache/
-ENV MAFFT_BINARIES /opt/tcoffee/plugins/linux/
 ENV EMAIL_4_TCOFFEE tcoffee.msa@gmail.com
 ENV LOCKDIR_4_TCOFFEE /opt/tcoffee/lck/
 ENV TMP_4_TCOFFEE /opt/tcoffee/tmp/
+
+ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/blast/bin:/opt/sate/sate-core/bin:/opt/tcoffee/bin:/opt/tcoffee/plugins/linux/
