@@ -261,6 +261,7 @@ process Lib_and_Aln {
  */
  
 process Large_scale_MSAs {
+    errorStrategy 'ignore'
 
     input:
     set (fam, file(sequences)) from fam_full
@@ -319,6 +320,7 @@ lib_and_msa = sp_lib1
 
 
 process Extracted_msa {
+    errorStrategy 'ignore'
 
     input:
     set fam, method, file(splib), file(aln) from lib_and_msa
