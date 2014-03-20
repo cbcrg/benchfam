@@ -3,20 +3,20 @@
 /*
  * Copyright (c) 2013, Centre for Genomic Regulation (CRG) and the authors.
  *
- *   This file is part of 'PFAM-EVAL'.
+ *   This file is part of 'BENCHFAM'.
  *
- *   PFAM-EVAL is free software: you can redistribute it and/or modify
+ *   BENCHFAM is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation, either version 3 of the License, or
  *   (at your option) any later version.
  *
- *   PFAM-EVAL is distributed in the hope that it will be useful,
+ *   BENCHFAM is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with PFAM-EVAL.  If not, see <http://www.gnu.org/licenses/>.
+ *   along with BENCHFAM.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 
@@ -281,6 +281,11 @@ process Large_scale_MSAs {
         """
         clustalo --threads ${params.cpus} -i ${sequences} -o $alnName
         """
+        
+    else if( method == 'tcoffee' )  
+        """
+        tea -n ${params.cpus} -i ${sequences} -o $alnName --cluster_size 100
+        """ 
 
     else
         error "Unknown align method: $method"
@@ -390,7 +395,7 @@ def renderTable( Map map, methods ) {
     def count = 0
     map.each { famName, allValues ->
         def head = count++ == 0 ? new String[allValues.size()+1] : null	
-        def row = new String[ allValues.size()+1 ]
+        def row = new String[ methods.size()+1 ]
 
         row[0] = famName
         if( head ) head[0] = 'Pfam'
