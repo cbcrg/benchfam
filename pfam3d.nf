@@ -50,7 +50,7 @@ expresso_params = params.blastDb in ['NCBI','EBI'] ? "-blast=${db_blast}" :  "-b
 
 // -- summary 
 
-log.info "P F A M  -  E V A L   ~   v. 1.0"
+log.info "B E N C H - F A M     ~   v. 1.0"
 log.info "================================"
 log.info "blastDb           : ${params.blastDb}"
 log.info "pfamFullGz        : ${params.pfamFullGz}"
