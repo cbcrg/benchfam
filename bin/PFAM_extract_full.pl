@@ -4,34 +4,33 @@
 # with an existing structure. Then it will generate a fasta file in fasta format for each of 
 # them.
 
-use strict;
 use File::Copy;
 
-my $ia=0;
-my $ib;
-my $ic;
-my $id1;
-my $id2;
-my $ie;
-my $if;
-my $ig;
-my $ih;
+$ia=0;
+$ib;
+$ic;
+$id1;
+$id2;
+$ie;
+$if;
+$ig;
+$ih;
 
-my @seq_all;
-my @seq_pdb;
-my $name_pdb;
-my $name;
-my $option=$ARGV[0];
-my $limits=$ARGV[1];
-my $file=$ARGV[2];
-my $mode;
+@seq_all;
+@seq_pdb;
+$name_pdb;
+$name;
+$option=$ARGV[0];
+$limits=$ARGV[1];
+$file=$ARGV[2];
+$mode;
 
 if ($option eq "FULL") { $mode=1;}
 if ($option eq "PDB")  { $mode=2;}
 
 open(PFAM, "< " . $file);
 
-while (my $line=<PFAM>)
+while ($line=<PFAM>)
 {
 	last if ($ia eq  $limits);
 	chomp $line;
@@ -69,14 +68,19 @@ while (my $line=<PFAM>)
 			{
 				if ($seq_all[$ie] eq "$1/$2-$3")
 				{
-					$name="$1/$2-$3";
-                                	print SET_ALL ">$1/$2-$3\n";
-	                                $line=~/(\w+)\/(\w+)-(\w+)(\s+)(\w+)/;
-        	                        my $buffer=$5;
-                	                $buffer=~s/\.||-//g;
-                        	        $buffer=~tr/[a-z]/[A-Z]/;
-                                	print SET_ALL "$buffer\n";
-				}
+                        $name="$1/$2-$3";	
+                        $line=~/(\w+)\/(\w+)-(\w+)(\s+)(\w+)/;
+                        $buffer=$5;
+                        $buffer=~s/\.||-//g;
+                        $buffer=~tr/[a-z]/[A-Z]/;
+                        $Bindex = index($buffer, 'B'); 
+                        $Zindex = index($buffer, 'Z');
+                        $Xindex = index($buffer, 'X');
+                        if( $Bindex == -1 && $Zindex==-1 && $Xindex==-1){
+                            print SET_ALL ">$1/$2-$3\n";
+                            print SET_ALL "$buffer\n";
+                        }
+			    }
 			}
 		}
 	}
@@ -105,12 +109,17 @@ while (my $line=<PFAM>)
 			{
 				if ($seq_pdb[$ie] eq "$1/$2-$3")
 				{	
-					print SET_PDB ">$1/$2-$3\n";
 					$line=~/(\w+)\/(\w+)-(\w+)(\s+)(\w+)/;
-					my $buffer=$5;
+					$buffer=$5;
 					$buffer=~s/\.||-//g;
 					$buffer=~tr/[a-z]/[A-Z]/;
-					print SET_PDB "$buffer\n";
+					$Bindex = index($buffer, 'B'); 
+                    $Zindex = index($buffer, 'Z');
+                    $Xindex = index($buffer, 'X');
+                    if( $Bindex == -1 && $Zindex==-1 && $Xindex==-1){
+                       print SET_PDB ">$1/$2-$3\n";
+                       print SET_PDB "$buffer\n";
+                    }
 				}
 			}
 		}					
