@@ -41,8 +41,11 @@ RUN wget -q http://www.tcoffee.org/Packages/Archive/tcoffee-Version_10.00.r1613.
   
 ENV SATE_HOME /opt/sate/  
 ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/blast/bin:/opt/sate/sate-core/bin:/opt/tcoffee/bin:/opt/tcoffee/plugins/linux/
+ENV TMP /tmp
 ENV DIR_4_TCOFFEE /opt/tcoffee
-ENV CACHE_4_TCOFFEE /.t_coffee/cache/
-ENV LOCKDIR_4_TCOFFEE /opt/tcoffee/lck/
-ENV TMP_4_TCOFFEE /opt/tcoffee/tmp/
+ENV EMAIL_4_TCOFFEE tcoffee.msa@gmail.com
+ENV CACHE_4_TCOFFEE /tmp/cache/
+ENV LOCKDIR_4_TCOFFEE /tmp/lck/
+ENV TMP_4_TCOFFEE /tmp/tmp/
+
 
