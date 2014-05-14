@@ -35,18 +35,20 @@ params.pfamFullGz = '/db/pfam/latest/Pfam-A.full.gz'
 params.dbCache = "db_${params.limit}"
 params.methods = 'mafft,clustalo'
 params.cpus = 1
-
+ 
 // -- given a comma separated list of methods converts it to a list object 
 all_methods = params.methods.split(',').collect { it.trim() }
 
 // -- local paths where are stored sequence files extracted by the Pfam database 
-db_pdb = file(params.dbCache).resolve('pdb') 
-db_full = file(params.dbCache).resolve('full')
+params.db_pdb = file(params.dbCache).resolve('pdb') 
+params.db_full = file(params.dbCache).resolve('full')
 
 // -- the LOCAL BAST database required by T-Coffee
 db_blast = file(params.blastDb)
 expresso_params = params.blastDb in ['NCBI','EBI'] ? "-blast=${db_blast}" :  "-blast=LOCAL -pdb_db=${db_blast}"
 
+db_pdb = params.db_pdb 
+db_full = params.db_full
 
 // -- summary 
 
@@ -59,6 +61,8 @@ log.info "limit             : ${params.limit}"
 log.info "methods           : ${params.methods}"
 log.info "cpus              : ${params.cpus}"
 log.info "expresso_params   : ${expresso_params}"
+log.info "db_pdb            : ${db_pdb}"
+log.info "db_full           : ${db_full}" 
 
 /* 
  * Uncompress the PFAM database extracing only sequences with structures
@@ -67,11 +71,11 @@ process extractPdb {
   storeDir db_pdb  
 
   output: 
-  file '*_pdb.fasta' into pdb_files mode flatten
+  file '*_pdb.fa' into pdb_files mode flatten
 
   """
   gzip -c -d ${params.pfamFullGz} | PFAM_extract_full.pl PDB ${params.limit} -
-  for x in *.fasta; do [ `grep '>' \$x -c` -lt 10 ] && rm \$x; done
+  for x in *.fa; do [ `grep '>' \$x -c` -lt 10 ] && rm \$x; done
   """
 }
 
@@ -82,7 +86,7 @@ process extractFull {
   storeDir db_full
 
   output: 
-  file '*_full.fasta' into full_files mode flatten
+  file '*_full.fa' into full_files mode flatten
 
   """
   gzip -c -d ${params.pfamFullGz} | PFAM_extract_full.pl FULL ${params.limit} -
@@ -173,6 +177,7 @@ process Lib_and_Aln {
     set (fam, 'sap.lib:mustang.lib:tmalign.lib' ) into lib_files
 
     """
+    unset MAFFT_BINARIES
     cp modified.fasta sap.fasta
     cp modified.fasta mustang.fasta
     cp modified.fasta tmalign.fasta
@@ -274,6 +279,7 @@ process Large_scale_MSAs {
     alnName = "${fam}_${method}.aln"
     if( method=='mafft')
         """
+        unset MAFFT_BINARIES
         mafft --anysymbol --parttree --thread ${params.cpus} --quiet ${sequences} > $alnName
         """
 
