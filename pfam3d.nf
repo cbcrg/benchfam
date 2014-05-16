@@ -35,34 +35,38 @@ params.pfamFullGz = '/db/pfam/latest/Pfam-A.full.gz'
 params.dbCache = "db_${params.limit}"
 params.methods = 'mafft,clustalo'
 params.cpus = 1
- 
+params.outdir = 'results'
+
+// --validate result directory
+resultDir = checkResultDir(params.outdir)
+
 // -- given a comma separated list of methods converts it to a list object 
 all_methods = params.methods.split(',').collect { it.trim() }
 
 // -- local paths where are stored sequence files extracted by the Pfam database 
-params.db_pdb = file(params.dbCache).resolve('pdb') 
-params.db_full = file(params.dbCache).resolve('full')
+params.db_pdb = "${params.dbCache}/pdb"
+params.db_full = "${params.dbCache}/full"
 
 // -- the LOCAL BAST database required by T-Coffee
 db_blast = file(params.blastDb)
 expresso_params = params.blastDb in ['NCBI','EBI'] ? "-blast=${db_blast}" :  "-blast=LOCAL -pdb_db=${db_blast}"
 
-db_pdb = params.db_pdb 
-db_full = params.db_full
+db_pdb = file(params.db_pdb)
+db_full = file(params.db_full)
 
 // -- summary 
 
-log.info "B E N C H - F A M     ~   v. 1.0"
+log.info "B E N C H - F A M     ~   v. 1.1"
 log.info "================================"
 log.info "blastDb           : ${params.blastDb}"
 log.info "pfamFullGz        : ${params.pfamFullGz}"
 log.info "dbCache           : ${params.dbCache}"
+log.info "db_pdb            : ${params.db_pdb}"
+log.info "db_full           : ${params.db_full}"
 log.info "limit             : ${params.limit}"
 log.info "methods           : ${params.methods}"
 log.info "cpus              : ${params.cpus}"
 log.info "expresso_params   : ${expresso_params}"
-log.info "db_pdb            : ${db_pdb}"
-log.info "db_full           : ${db_full}" 
 
 /* 
  * Uncompress the PFAM database extracing only sequences with structures
@@ -80,7 +84,7 @@ process extractPdb {
 }
 
 /* 
- * Uncompress the PFAM database extracing ALL sequences
+ * Uncompress the PFAM database extracting ALL sequences
  */
 process extractFull {
   storeDir db_full
@@ -154,17 +158,17 @@ fam_names = Channel.create()
 modified_struct1 = Channel.create()
 
 modified_struct.filter { tuple ->
-            int count=0; tuple[1].chopFasta {count++}
-            def valid = count>=10
+            def count = tuple[1].countFasta()
+            def valid = count >= 10
             if( !valid )
-                log.info "Discarding family: ${tuple[0]} because 'PDB_extract' returns less than 10 structures"
+                log.info "Discarding family: ${tuple[0]} because 'PDB_extract' returns less than 10 structures ($count)"
             return valid
         }
         .tap( modified_struct1 )
         .map { tuple -> tuple[0] }
         .phase( full_files2 )
         .map { f, t ->  [ f, t ]  }
-        .separate( fam_names, fam_full ) { it }
+        .separate( fam_names, fam_full )
 
 
 process Lib_and_Aln {
@@ -173,11 +177,13 @@ process Lib_and_Aln {
     set ( fam, 'modified.fasta', 'modified.template', '*' ) from modified_struct1
 
     output:
-    file '*_irmsd' into irmsd_files
+    set (fam, '*.aln') into aln_files mode flatten
+    set (fam, '*_irmsd') into irmsd_files mode flatten
     set (fam, 'sap.lib:mustang.lib:tmalign.lib' ) into lib_files
 
     """
     unset MAFFT_BINARIES
+
     cp modified.fasta sap.fasta
     cp modified.fasta mustang.fasta
     cp modified.fasta tmalign.fasta
@@ -319,7 +325,7 @@ process splib {
  * split the channel in two to handle them separately
  */
  
-(sp_lib1, sp_lib2) = sp_lib.split(2)
+(sp_lib1, sp_lib2) = sp_lib.into(2)
 
 /* 
  * - Join each lib1 with the large msa for the corresponding family name 
@@ -370,10 +376,37 @@ process evaluate {
 
 }
 
-scores = evaluation
-           .map { tuple -> tuple[2] = getScore(tuple[2]); tuple }
-           .groupBy { it[0] }
-           .subscribe{ println renderTable(it,all_methods) }
+/*
+ * Save the score table file
+ */
+evaluation
+       .map { tuple -> tuple[2] = getScore(tuple[2]); tuple }
+       .groupBy { it[0] }
+       .subscribe{
+            def file = resultDir.resolve('scores.txt')
+            file << renderTable(it,all_methods)
+            println "\nScores table save to: $file"
+        }
+
+/*
+ * Save the irmsd files
+ */
+
+irmsd_files.collectFile(storeDir: resultDir) { entry ->
+    def fam = entry[0]
+    def file = entry[1]
+    [ "${fam}_${file.name}", file ]
+}
+
+/*
+ * Save the alignment files
+ */
+
+aln_files.collectFile(storeDir: resultDir) { entry ->
+    def fam = entry[0]
+    def file = entry[1]
+    [ "${fam}_${file.name}", file ]
+}
 
 /* 
  * Extract the score value from the result file 
@@ -421,6 +454,25 @@ def renderTable( Map map, methods ) {
     return result.toString()
 }
 
+/*
+ * Verify that the result dir is empty or create it if do not exist
+ */
+def checkResultDir( String path ) {
+    def result = file(path)
+    if( result.exists() && result.isDirectory() && result.isEmpty() )
+        return result
+
+    if( result.exists() && !result.isDirectory())
+        exit 1, "The specified result path is a file: $result -- please delete it or provide a different result path"
+
+    if( result.exists()  && !result.isEmpty() )
+        exit 2, "The specified result path is not empty: $result -- please delete the content or provide a different path"
+
+    if( !result.exists() && !result.mkdirs() )
+        exit 3, "Unable to create the result folder: $result -- please write permissions or provide a different path"
+
+    return result
+}
 
 /*  
  * A unit-test for the 'renderTable' function 
