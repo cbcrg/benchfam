@@ -84,7 +84,7 @@ process extractPdb {
 }
 
 /* 
- * Uncompress the PFAM database extracing ALL sequences
+ * Uncompress the PFAM database extracting ALL sequences
  */
 process extractFull {
   storeDir db_full
