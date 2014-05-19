@@ -183,6 +183,7 @@ process Lib_and_Aln {
 
     """
     unset MAFFT_BINARIES
+    replace_U.pl modified.fasta
 
     cp modified.fasta sap.fasta
     cp modified.fasta mustang.fasta
