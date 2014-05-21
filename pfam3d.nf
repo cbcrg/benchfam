@@ -141,6 +141,8 @@ process pdb_extract {
     output:
     set ( fam, 'modified.fasta', 'modified.template', '*-1.pdb' ) into modified_struct
     set ( fam, 'modified.fasta' ) into seq3d
+    set ( fam, 'modified.fasta', 'modified.template' ) into modified_copy
+
     """
     PDB_extract.pl
     """
@@ -409,6 +411,19 @@ aln_files.collectFile(storeDir: resultDir) { entry ->
     def file = entry[1]
     [ "${fam}_${file.name}", file ]
 }
+
+/*
+ * Save fasta and templates
+ */
+modified_copy.subscribe { entry ->
+    def fam = entry[0]
+    def fasta = entry[1]
+    def template = entry[2]
+    fasta.copyTo( resultDir.resolve("${fam}_modified.fasta") )
+    template.copyTo( resultDir.resolve("${fam}_template.fasta") )
+}
+
+
 
 /* 
  * Extract the score value from the result file 
