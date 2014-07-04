@@ -225,7 +225,7 @@ process Lib_and_Aln {
     t_coffee tmalign_sap.fasta -lib tmalign.lib sap.lib -multi_core=${params.cpus}
 
     clustalw clustalw.fasta
-    mafft --thread ${params.cpus} mafft.fasta > mafft.temp
+    mafft --quiet --thread ${params.cpus} mafft.fasta > mafft.temp
     t_coffee -other_pg seq_reformat mafft.temp -output clustalw > mafft.aln
 
     msaprobs msaprobs.fasta -o msaprobs.temp
@@ -290,7 +290,7 @@ process Large_scale_MSAs {
         """
         unset MAFFT_BINARIES
         replace_U.pl ${sequences}
-        mafft --anysymbol --parttree --thread ${params.cpus} --quiet ${sequences} > $alnName
+        mafft --quiet --anysymbol --parttree --thread ${params.cpus} --quiet ${sequences} > $alnName
         """
 
     else if( method=='clustalo' )
