@@ -34,6 +34,9 @@ RUN easy_install -U dendropy; \
     rm satesrc-v2.2.7-2013Feb15.tar.gz; \
     ln -s /opt/satesrc-v2.2.7-2013Feb15 /opt/sate; 
 
+RUN wget -q http://www.clustal.org/omega/clustalo-1.2.0-Ubuntu-x86_64; \
+    chmod +x clustalo-1.2.0-Ubuntu-x86_64; \
+    mv clustalo-1.2.0-Ubuntu-x86_64 /usr/local/bin/clustalo
 
 RUN wget -q http://www.tcoffee.org/Packages/Beta/Version_10.00.04ad7ba/linux/T-COFFEE_installer_Version_10.00.04ad7ba_linux_x64.tar.gz; \
   tar xf T-COFFEE_installer_Version_10.00.04ad7ba_linux_x64.tar.gz; \
