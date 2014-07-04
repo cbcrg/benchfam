@@ -35,13 +35,13 @@ RUN easy_install -U dendropy; \
     ln -s /opt/satesrc-v2.2.7-2013Feb15 /opt/sate; 
 
 
-RUN wget -q http://www.tcoffee.org/Packages/Archive/tcoffee-Version_10.00.r1613.tar.gz; \
-  tar xf tcoffee-Version_10.00.r1613.tar.gz -C /opt; \
-  rm -rf tcoffee-Version_10.00.r1613.tar.gz
+RUN wget http://www.tcoffee.org/Packages/Beta/Version_10.00.04ad7ba/linux/T-COFFEE_installer_Version_10.00.04ad7ba_linux_x64.tar.gz; \
+  tar xf T-COFFEE_installer_Version_10.00.04ad7ba_linux_x64.tar.gz; \
+  mv T-COFFEE_installer_Version_10.00.04ad7ba_linux_x64 /opt/tcoffee; \
+  rm -rf T-COFFEE_installer_Version_10.00.04ad7ba_linux_x64.tar.gz
   
 ENV SATE_HOME /opt/sate/  
 ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/blast/bin:/opt/sate/sate-core/bin:/opt/tcoffee/bin:/opt/tcoffee/plugins/linux/
-ENV TMP /tmp
 ENV DIR_4_TCOFFEE /opt/tcoffee
 ENV EMAIL_4_TCOFFEE tcoffee.msa@gmail.com
 ENV CACHE_4_TCOFFEE /tmp/cache/
