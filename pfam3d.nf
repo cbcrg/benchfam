@@ -37,6 +37,16 @@ params.methods = 'mafft,clustalo'
 params.cpus = 1
 params.outdir = 'results'
 
+params.min_pdb = 10
+params.id_max = 95
+params.id_min = 95
+params.cov_min = 95
+params.window=5
+params.min_length=0.75
+params.max_length=1.50
+params.gaps_max=0.05
+params.id_filter=0.90
+
 // --validate result directory
 resultDir = checkResultDir(params.outdir)
 
@@ -46,6 +56,7 @@ all_methods = params.methods.split(',').collect { it.trim() }
 // -- local paths where are stored sequence files extracted by the Pfam database 
 params.db_pdb = "${params.dbCache}/pdb"
 params.db_full = "${params.dbCache}/full"
+params.pfam_aln = "${params.dbCache}/pfam/*"
 
 // -- the LOCAL BAST database required by T-Coffee
 db_blast = file(params.blastDb)
@@ -56,17 +67,27 @@ db_full = file(params.db_full)
 
 // -- summary 
 
-log.info "B E N C H - F A M     ~   v. 1.1"
+log.info "B E N C H - F A M     ~   v. 1.3"
 log.info "================================"
 log.info "blastDb           : ${params.blastDb}"
 log.info "pfamFullGz        : ${params.pfamFullGz}"
 log.info "dbCache           : ${params.dbCache}"
 log.info "db_pdb            : ${params.db_pdb}"
 log.info "db_full           : ${params.db_full}"
+log.info "pfam_aln          : ${params.pfam_aln}"
 log.info "limit             : ${params.limit}"
 log.info "methods           : ${params.methods}"
 log.info "cpus              : ${params.cpus}"
 log.info "expresso_params   : ${expresso_params}"
+log.info "min_pdb           : ${params.min_pdb}"
+log.info "id_min            : ${params.id_min}"
+log.info "id_max            : ${params.id_max}"
+log.info "cov_min           : ${params.cov_min}"
+log.info "window            : ${params.window}"
+log.info "min_length        : ${params.min_length}"
+log.info "max_length        : ${params.max_length}"
+log.info "gaps_max          : ${params.gaps_max}"
+log.info "id_filter         : ${params.id_filter}"
 
 /* 
  * Uncompress the PFAM database extracing only sequences with structures
@@ -79,7 +100,7 @@ process extractPdb {
 
   """
   gzip -c -d ${params.pfamFullGz} | PFAM_extract_full.pl PDB ${params.limit} -
-  for x in *.fa; do [ `grep '>' \$x -c` -lt 10 ] && rm \$x; done
+  for x in *.fa; do [ `grep '>' \$x -c` -lt ${params.min_pdb} ] && rm \$x; done
   """
 }
 
@@ -106,37 +127,30 @@ full_files2 = full_files.map { file -> [ file.baseName.replace('_full',''), file
  * receive in input the PFXXXX_pdb.fasta
  */
 process filter {
-     errorStrategy 'ignore'
+    tag { fasta.name }
 
     input:
     file fasta from pdb_files
 
     output:
-    set ( fam, 'temp.list', 'temp.fasta', '*.pdb') into temp_struct
+    set ( fam, 'data.fasta', 'data_pdb1.template_list', '*.pdb') into temp_struct
 
     script:
     fam = fasta.baseName.endsWith('_pdb') ? fasta.baseName.replace('_pdb','') : fasta.baseName   
 
     """
-    t_coffee -other_pg seq_reformat -in $fasta -action +trim _seq_%%99_ > data_99.fasta
-    t_coffee data_99.fasta -mode expresso -pdb_type d -pdb_min_sim 95 -pdb_min_cov 95 -multi_core=${params.cpus} -cache \$PWD $expresso_params
-    grep _P_  *_pdb1.template_list > temp.list || true
-    if [ -s temp.list ]; then
-      t_coffee -other_pg seq_reformat -in data_99.fasta -action +extract_seq_list temp.list > temp.fasta
-    else 
-      touch temp.fasta 
-    fi 
+    t_coffee -other_pg seq_reformat -in $fasta -action +trim _seq_%%${params.id_max}_ > data.fasta
+    t_coffee data.fasta -mode expresso -pdb_type d -pdb_min_sim ${params.id_min} -pdb_min_cov ${params.cov_min} -multi_core=${params.cpus} -cache \$PWD $expresso_params
     """
 }
 
-// -- discards all the empty results
-temp_struct1 = temp_struct.filter {  tuple -> !tuple[1].empty() }  
 
 process pdb_extract {
-     errorStrategy 'ignore'
+    tag { fam }
+    errorStrategy 'ignore'
 
     input:
-    set ( fam, 'temp.list','temp.fasta','*') from temp_struct1
+    set ( fam, 'data.fasta','data_pdb1.template_list','*') from temp_struct
 
     output:
     set ( fam, 'modified.fasta', 'modified.template', '*-1.pdb' ) into modified_struct
@@ -144,7 +158,7 @@ process pdb_extract {
     set ( fam, 'modified.fasta', 'modified.template' ) into modified_copy
 
     """
-    PDB_extract.pl
+    PDB_extract.pl data.fasta data_pdb1.template_list ${params.window} ${params.min_length} ${params.max_length} ${params.gaps_max} ${params.id_filter}
     """
 }
 
@@ -161,9 +175,9 @@ modified_struct1 = Channel.create()
 
 modified_struct.filter { tuple ->
             def count = tuple[1].countFasta()
-            def valid = count >= 10
+            def valid = count >= params.min_pdb
             if( !valid )
-                log.info "Discarding family: ${tuple[0]} because 'PDB_extract' returns less than 10 structures ($count)"
+                log.info "Discarding family: ${tuple[0]} because 'PDB_extract' returns less than ${params.min_pdb} structures ($count)"
             return valid
         }
         .tap( modified_struct1 )
@@ -174,6 +188,7 @@ modified_struct.filter { tuple ->
 
 
 process Lib_and_Aln {
+    tag { fam }
 
     input:
     set ( fam, 'modified.fasta', 'modified.template', '*' ) from modified_struct1
@@ -275,6 +290,7 @@ process Lib_and_Aln {
  */
  
 process Large_scale_MSAs {
+    tag { "$fam-$method" }
     errorStrategy 'ignore'
 
     input:
@@ -308,11 +324,14 @@ process Large_scale_MSAs {
 
 }
 
+
 fam_lib = fam_names
         .phase( lib_files )
         .map { fam, lib ->  lib }
 
 process splib {
+    tag { fam }
+
     input:
     set ( fam, '*' ) from fam_lib
 
@@ -325,6 +344,14 @@ process splib {
 }
 
 
+pfam_msa = Channel.fromPath ( params.pfam_aln )
+                  .map { aln -> return [aln.name.substring(0,7), 'pfam', aln] }
+
+/*  
+ * mix large_msa channel with the pfam_msa 
+ */ 
+all_msa = large_msa.mix(pfam_msa)
+
 /* 
  * split the channel in two to handle them separately
  */
@@ -336,11 +363,12 @@ process splib {
  * - Create a channel named 'lib_and_msa' that will emit tuples like ( familyName, align method, sp_lib file, alignment file ) 
  */ 
 lib_and_msa = sp_lib1
-                .cross(large_msa)
+                .cross(all_msa)
                 .map { lib, aln -> [ lib[0], aln[1], lib[1], aln[2] ] }
 
 
 process Extracted_msa {
+    tag { "$fam-$method" }
     errorStrategy 'ignore'
 
     input:
@@ -367,15 +395,16 @@ msa_eval = sp_lib2
         .map { lib,aln -> [ lib[0], aln[1], lib[1], aln[2] ] }  //  ( familyName, method, sp_lib file, alignment file )
 
 process evaluate {
+    tag { "$fam-$method" }
 
     input:
-    set family, method, file(splib), file(msa) from msa_eval
+    set fam, method, file(splib), file(msa) from msa_eval
 
     output:
-    set family, method, '*.Res' into evaluation
+    set fam, method, '*.Res' into evaluation
 
     """
-    t_coffee -other_pg aln_compare -lib ${splib} -al2 ${msa} >> ${family}_evalution.Res
+    t_coffee -other_pg aln_compare -lib ${splib} -al2 ${msa} >> ${fam}_evalution.Res
     """
 
 }
@@ -388,7 +417,7 @@ evaluation
        .groupBy { it[0] }
        .subscribe{
             def file = resultDir.resolve('scores.txt')
-            file << renderTable(it,all_methods)
+            file << renderTable(it,all_methods+'pfam')
             println "\nScores table save to: $file"
         }
 
@@ -454,14 +483,15 @@ def renderTable( Map map, methods ) {
         def row = new String[ methods.size()+1 ]
 
         row[0] = famName
-        if( head ) head[0] = 'Pfam'
+        if( head ) head[0] = 'Family'
 
         allValues.each { tuple ->
             def methodName = tuple[1]
             def index = methods.indexOf(methodName) +1
             if( !index ) { log.warn "Unknown method while rendering results table: '$methodName'" }
             row[index] = tuple[2]
-            if( head ) head[index] = methodName
+            if( head && index<head.size()) 
+              head[index] = methodName
         }
 
         if( head ) result << ( head.join(',') ) << '\n'
@@ -496,5 +526,5 @@ def checkResultDir( String path ) {
  */
 def void testRenderTable() {
    def map = [PF00389:[['PF00389', 'clustalo', 0.775], ['PF00389', 'mafft', 0.735]], PF02826:[['PF02826', 'clustalo', 0.808], ['PF02826', 'mafft', 0.813]], PF03061:[['PF03061', 'mafft', 0.533], ['PF03061', 'clustalo', 0.791]]]
-   assert renderTable(map,['mafft','clustalo']) == 'Pfam,mafft,clustalo\nPF00389,0.735,0.775\nPF02826,0.813,0.808\nPF03061,0.533,0.791\n'
+   assert renderTable(map,['mafft','clustalo']) == 'Family,mafft,clustalo\nPF00389,0.735,0.775\nPF02826,0.813,0.808\nPF03061,0.533,0.791\n'
 }
