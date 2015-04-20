@@ -24,7 +24,7 @@
  * Main pipeline script 
  * 
  * @authors 
- * Cedric Magis <cedrik.1978@gmail.com>ma
+ * Cedrik Magis <cedrik.1978@gmail.com>ma
  * Maria Chatzou <mxatzou@gmail.com>
  * Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
