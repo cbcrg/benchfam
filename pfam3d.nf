@@ -153,7 +153,7 @@ process pdb_extract {
     set ( fam, 'data.fasta','data_pdb1.template_list','*') from temp_struct
 
     output:
-    set ( fam, 'modified.fasta', 'modified.template', '*-1.pdb' ) into modified_struct
+    set ( fam, 'modified.fasta', 'modified.template', '*-*.pdb' ) into modified_struct
     set ( fam, 'modified.fasta' ) into seq3d
     set ( fam, 'modified.fasta', 'modified.template' ) into modified_copy
 
