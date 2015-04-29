@@ -34,7 +34,6 @@ params.blastDb = "/db/pdb/derived_data_format/blast/latest/pdb_seqres.fa"
 params.pfamFullGz = '/db/pfam/latest/Pfam-A.full.gz'
 params.dbCache = "db_${params.limit}"
 params.methods = 'mafft,clustalo'
-params.cpus = 1
 params.outdir = 'results'
 
 params.min_pdb = 10
@@ -77,7 +76,6 @@ log.info "db_full           : ${params.db_full}"
 log.info "pfam_aln          : ${params.pfam_aln}"
 log.info "limit             : ${params.limit}"
 log.info "methods           : ${params.methods}"
-log.info "cpus              : ${params.cpus}"
 log.info "expresso_params   : ${expresso_params}"
 log.info "min_pdb           : ${params.min_pdb}"
 log.info "id_min            : ${params.id_min}"
@@ -140,7 +138,7 @@ process filter {
 
     """
     t_coffee -other_pg seq_reformat -in $fasta -action +trim _seq_%%${params.id_max}_ > data.fasta
-    t_coffee data.fasta -mode expresso -pdb_type d -pdb_min_sim ${params.id_min} -pdb_min_cov ${params.cov_min} -multi_core=${params.cpus} -cache \$PWD $expresso_params
+    t_coffee data.fasta -mode expresso -pdb_type d -pdb_min_sim ${params.id_min} -pdb_min_cov ${params.cov_min} -multi_core=${task.cpus} -cache \$PWD $expresso_params
     """
 }
 
@@ -224,23 +222,23 @@ process Lib_and_Aln {
     cp modified.fasta sate.fasta
 
     # Create libraries by combining other methods
-    t_coffee sap.fasta -template_file modified.template -method sap_pair -out_lib sap.lib -multi_core=${params.cpus}
-    t_coffee mustang.fasta -template_file modified.template -method mustang_pair -out_lib mustang.lib -multi_core=${params.cpus}
-    t_coffee tmalign.fasta -template_file modified.template -method TMalign_pair -out_lib tmalign.lib -multi_core=${params.cpus}
-    t_coffee tcoffee.fasta -out_lib tcoffee.lib -multi_core=${params.cpus}
-    t_coffee mcoffee.fasta -mode mcoffee -out_lib mcoffee.lib -multi_core=${params.cpus}
+    t_coffee sap.fasta -template_file modified.template -method sap_pair -out_lib sap.lib -multi_core=${task.cpus}
+    t_coffee mustang.fasta -template_file modified.template -method mustang_pair -out_lib mustang.lib -multi_core=${task.cpus}
+    t_coffee tmalign.fasta -template_file modified.template -method TMalign_pair -out_lib tmalign.lib -multi_core=${task.cpus}
+    t_coffee tcoffee.fasta -out_lib tcoffee.lib -multi_core=${task.cpus}
+    t_coffee mcoffee.fasta -mode mcoffee -out_lib mcoffee.lib -multi_core=${task.cpus}
 
     # This doesn't need the PDBs
-    t_coffee 3Dmcoffee.fasta -lib sap.lib mustang.lib tmalign.lib -multi_core=${params.cpus}
-    t_coffee sap_proba.fasta -lib tcoffee.lib sap.lib -multi_core=${params.cpus}
-    t_coffee mustang_proba.fasta -lib tcoffee.lib mustang.lib -multi_core=${params.cpus}
-    t_coffee tmalign_proba.fasta -lib tcoffee.lib tmalign.lib -multi_core=${params.cpus}
-    t_coffee sap_mustang.fasta -lib sap.lib mustang.lib -multi_core=${params.cpus}
-    t_coffee mustang_tmalign.fasta -lib mustang.lib tmalign.lib -multi_core=${params.cpus}
-    t_coffee tmalign_sap.fasta -lib tmalign.lib sap.lib -multi_core=${params.cpus}
+    t_coffee 3Dmcoffee.fasta -lib sap.lib mustang.lib tmalign.lib -multi_core=${task.cpus}
+    t_coffee sap_proba.fasta -lib tcoffee.lib sap.lib -multi_core=${task.cpus}
+    t_coffee mustang_proba.fasta -lib tcoffee.lib mustang.lib -multi_core=${task.cpus}
+    t_coffee tmalign_proba.fasta -lib tcoffee.lib tmalign.lib -multi_core=${task.cpus}
+    t_coffee sap_mustang.fasta -lib sap.lib mustang.lib -multi_core=${task.cpus}
+    t_coffee mustang_tmalign.fasta -lib mustang.lib tmalign.lib -multi_core=${task.cpus}
+    t_coffee tmalign_sap.fasta -lib tmalign.lib sap.lib -multi_core=${task.cpus}
 
     clustalw clustalw.fasta
-    mafft --quiet --thread ${params.cpus} mafft.fasta > mafft.temp
+    mafft --quiet --thread ${task.cpus} mafft.fasta > mafft.temp
     t_coffee -other_pg seq_reformat mafft.temp -output clustalw > mafft.aln
 
     msaprobs msaprobs.fasta -o msaprobs.temp
@@ -255,7 +253,7 @@ process Lib_and_Aln {
     probcons probcons.fasta > probcons.temp
     t_coffee -other_pg seq_reformat probcons.temp -output clustalw > probcons.aln
 
-    python \$SATE_HOME/sate-core/run_sate.py --input sate.fasta --datatype=Protein --num-cpus=${params.cpus} --output-directory=tmp_sate --auto
+    python \$SATE_HOME/sate-core/run_sate.py --input sate.fasta --datatype=Protein --num-cpus=${task.cpus} --output-directory=tmp_sate --auto
     t_coffee -other_pg seq_reformat ./tmp_sate/satejob*.marker001.sate.aln -output clustalw > sate.aln
 
     # IRMSD-NIRMSD OF ALL MSAS
@@ -306,17 +304,17 @@ process Large_scale_MSAs {
         """
         unset MAFFT_BINARIES
         replace_U.pl ${sequences}
-        mafft --quiet --anysymbol --parttree --thread ${params.cpus} --quiet ${sequences} > $alnName
+        mafft --quiet --anysymbol --parttree --thread ${task.cpus} --quiet ${sequences} > $alnName
         """
 
     else if( method=='clustalo' )
         """
-        clustalo --threads ${params.cpus} -i ${sequences} -o $alnName
+        clustalo --threads ${task.cpus} -i ${sequences} -o $alnName
         """
         
     else if( method == 'tcoffee' )  
         """
-        tea -n ${params.cpus} -i ${sequences} -o $alnName --cluster_size 100
+        tea -n ${task.cpus} -i ${sequences} -o $alnName --cluster_size 100
         """ 
 
     else
@@ -339,7 +337,7 @@ process splib {
     set (fam, '*.sp_lib') into sp_lib
 
     """
-    t_coffee -lib sap.lib mustang.lib tmalign.lib -output sp_lib -outfile ${fam}.sp_lib -multi_core=${params.cpus}
+    t_coffee -lib sap.lib mustang.lib tmalign.lib -output sp_lib -outfile ${fam}.sp_lib -multi_core=${task.cpus}
     """
 }
 
