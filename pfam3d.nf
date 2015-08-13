@@ -66,7 +66,7 @@ db_full = file(params.db_full)
 
 // -- summary 
 
-log.info "B E N C H - F A M     ~   v. 1.3"
+log.info "B E N C H - F A M     ~   v. 1.4"
 log.info "================================"
 log.info "blastDb           : ${params.blastDb}"
 log.info "pfamFullGz        : ${params.pfamFullGz}"
@@ -153,7 +153,6 @@ process pdb_extract {
     output:
     set ( fam, 'modified.fasta', 'modified.template', '*-*.pdb' ) into modified_struct
     set ( fam, 'modified.fasta' ) into seq3d
-    set ( fam, 'modified.fasta', 'modified.template' ) into modified_copy
 
     """
     PDB_extract.pl data.fasta data_pdb1.template_list ${params.window} ${params.min_length} ${params.max_length} ${params.gaps_max} ${params.id_filter}
@@ -169,7 +168,6 @@ process pdb_extract {
 
 fam_full = Channel.create()
 fam_names = Channel.create()
-modified_struct1 = Channel.create()
 
 modified_struct.filter { tuple ->
             def count = tuple[1].countFasta()
@@ -178,7 +176,8 @@ modified_struct.filter { tuple ->
                 log.info "Discarding family: ${tuple[0]} because 'PDB_extract' returns less than ${params.min_pdb} structures ($count)"
             return valid
         }
-        .tap( modified_struct1 )
+        .tap{ modified_struct1 }
+        .tap{ modified_struct2 }
         .map { tuple -> tuple[0] }
         .phase( full_files2 )
         .map { f, t ->  [ f, t ]  }
@@ -442,7 +441,7 @@ aln_files.collectFile(storeDir: resultDir) { entry ->
 /*
  * Save fasta and templates
  */
-modified_copy.subscribe { entry ->
+modified_struct2.subscribe { entry ->
     def fam = entry[0]
     def fasta = entry[1]
     def template = entry[2]
