@@ -90,7 +90,7 @@ log.info "id_filter         : ${params.id_filter}"
 /* 
  * Uncompress the PFAM database extracing only sequences with structures
  */
-process extractPdb {
+process '1_extractPdb' {
   storeDir db_pdb  
 
   output: 
@@ -105,7 +105,7 @@ process extractPdb {
 /* 
  * Uncompress the PFAM database extracting ALL sequences
  */
-process extractFull {
+process '2_extractFull' {
   storeDir db_full
 
   output: 
@@ -124,7 +124,7 @@ full_files2 = full_files.map { file -> [ file.baseName.replace('_full',''), file
 /* 
  * receive in input the PFXXXX_pdb.fasta
  */
-process filter {
+process '3_filter' {
     tag { fasta.name }
 
     input:
@@ -143,16 +143,16 @@ process filter {
 }
 
 
-process pdb_extract {
+process '4_pdb_extract' {
     tag { fam }
     errorStrategy 'ignore'
 
     input:
-    set ( fam, 'data.fasta','data_pdb1.template_list','*') from temp_struct
+    set ( fam, 'data.fasta', 'data_pdb1.template_list', '*') from temp_struct
 
     output:
     set ( fam, 'modified.fasta', 'modified.template', '*-*.pdb' ) into modified_struct
-    set ( fam, 'modified.fasta' ) into seq3d
+    set ( fam, 'super.pml' ) into pml
 
     """
     PDB_extract.pl data.fasta data_pdb1.template_list ${params.window} ${params.min_length} ${params.max_length} ${params.gaps_max} ${params.id_filter}
@@ -184,7 +184,7 @@ modified_struct.filter { tuple ->
         .separate( fam_names, fam_full )
 
 
-process Lib_and_Aln {
+process '5_Lib_and_Aln' {
     tag { fam }
 
     input:
@@ -286,7 +286,7 @@ process Lib_and_Aln {
  * it received in input the PFXXXX_full.fasta
  */
  
-process Large_scale_MSAs {
+process '6_Large_scale_MSAs' {
     tag { "$fam-$method" }
     errorStrategy 'ignore'
 
@@ -326,7 +326,7 @@ fam_lib = fam_names
         .phase( lib_files )
         .map { fam, lib ->  lib }
 
-process splib {
+process '7_splib' {
     tag { fam }
 
     input:
@@ -364,7 +364,7 @@ lib_and_msa = sp_lib1
                 .map { lib, aln -> [ lib[0], aln[1], lib[1], aln[2] ] }
 
 
-process Extracted_msa {
+process '8_Extracted_msa' {
     tag { "$fam-$method" }
     errorStrategy 'ignore'
 
@@ -391,7 +391,7 @@ msa_eval = sp_lib2
         .cross(extracted_msa)
         .map { lib,aln -> [ lib[0], aln[1], lib[1], aln[2] ] }  //  ( familyName, method, sp_lib file, alignment file )
 
-process evaluate {
+process '9_evaluate' {
     tag { "$fam-$method" }
 
     input:
@@ -449,6 +449,7 @@ modified_struct2.subscribe { entry ->
     template.copyTo( resultDir.resolve("${fam}_template.fasta") )
 }
 
+pml.subscribe { fam, file -> file.copyTo( resultDir / "${fam}_super.pml" ) }
 
 
 /* 
