@@ -1,7 +1,7 @@
 #!/usr/env nextflow
 
 /*
- * Copyright (c) 2013, Centre for Genomic Regulation (CRG) and the authors.
+ * Copyright (c) 2016, Centre for Genomic Regulation (CRG) and the authors.
  *
  *   This file is part of 'BENCHFAM'.
  *
