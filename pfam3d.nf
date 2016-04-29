@@ -33,7 +33,7 @@ params.limit = 'all'
 params.blastDb = "/db/pdb/derived_data_format/blast/latest/pdb_seqres.fa"
 params.pfamFullGz = '/db/pfam/latest/Pfam-A.full.gz'
 params.dbCache = "db_${params.limit}"
-params.methods = 'mafft,clustalo'
+params.methods = 'mafft,clustalo,pasta,upp'
 params.outdir = 'results'
 
 params.min_pdb = 10
@@ -66,8 +66,8 @@ db_full = file(params.db_full)
 
 // -- summary 
 
-log.info "B E N C H - F A M     ~   v. 1.4"
-log.info "================================"
+log.info "B E N C H - F A M     ~   v. 1.4.1"
+log.info "=================================="
 log.info "blastDb           : ${params.blastDb}"
 log.info "pfamFullGz        : ${params.pfamFullGz}"
 log.info "dbCache           : ${params.dbCache}"
@@ -301,21 +301,34 @@ process '6_Large_scale_MSAs' {
     alnName = "${fam}_${method}.aln"
     if( method=='mafft')
         """
-        unset MAFFT_BINARIES
+        unset MAFFT_BINARIES 
         replace_U.pl ${sequences}
         mafft --quiet --anysymbol --parttree --thread ${task.cpus} --quiet ${sequences} > $alnName
         """
 
     else if( method=='clustalo' )
         """
-        clustalo --threads ${task.cpus} -i ${sequences} -o $alnName
+        clustalo --threads ${task.cpus} -i ${sequences} -o $alnName 
         """
         
-    else if( method == 'tcoffee' )  
+    else if( method == 'pasta' ) 
         """
-        tea -n ${task.cpus} -i ${sequences} -o $alnName --cluster_size 100
-        """ 
-
+        replace_U.pl $sequences 
+	run_pasta.py --num-cpus ${task.cpus} -i $sequences -d Protein -j $sequences -o out
+        mv out/${sequences}.marker* $alnName 
+        """
+  
+    else if( method == 'upp' ) 
+        """
+        replace_U.pl $sequences 
+	run_upp.py -s $sequences -m amino --cpu ${task.cpus} -d outdir  -o $alnName
+        mv outdir/${alnName}_alignment.fasta $alnName
+ 	"""
+    else if( method == 'mega' ) 
+	"""
+        replace_U.pl $sequences 
+        mega_coffee -i $sequences --cluster_size 2 --cluster_number 5000 -n ${task.cpus} -o $alnName
+	"""
     else
         error "Unknown align method: $method"
 
@@ -328,6 +341,7 @@ fam_lib = fam_names
 
 process '7_splib' {
     tag { fam }
+    publishDir resultDir, mode: 'copy'
 
     input:
     set ( fam, '*' ) from fam_lib
@@ -367,6 +381,7 @@ lib_and_msa = sp_lib1
 process '8_Extracted_msa' {
     tag { "$fam-$method" }
     errorStrategy 'ignore'
+    publishDir resultDir, mode: 'copy'
 
     input:
     set fam, method, file(splib), file(aln) from lib_and_msa
