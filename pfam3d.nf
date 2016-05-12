@@ -66,7 +66,7 @@ db_full = file(params.db_full)
 
 // -- summary 
 
-log.info "B E N C H - F A M     ~   v. 1.4.1"
+log.info "B E N C H - F A M     ~   v. 1.4.2"
 log.info "=================================="
 log.info "blastDb           : ${params.blastDb}"
 log.info "pfamFullGz        : ${params.pfamFullGz}"
@@ -117,8 +117,9 @@ process '2_extractFull' {
 }
 
 
-full_files2 = full_files.map { file -> [ file.baseName.replace('_full',''), file ] }
-
+full_files
+    .map { file -> [ file.baseName.replace('_full',''), file ] }
+    .set { full_files2 }
 
 
 /* 
@@ -335,19 +336,20 @@ process '6_Large_scale_MSAs' {
 }
 
 
-fam_lib = fam_names
-        .phase( lib_files )
-        .map { fam, lib ->  lib }
+fam_names
+    .phase( lib_files )
+    .map { fam, lib ->  lib }
+    .set { fam_lib }
 
 process '7_splib' {
     tag { fam }
     publishDir resultDir, mode: 'copy'
 
     input:
-    set ( fam, '*' ) from fam_lib
+    set fam, '*' from fam_lib
 
     output:
-    set (fam, '*.sp_lib') into sp_lib
+    set fam, '*.sp_lib' into sp_lib1, sp_lib2
 
     """
     t_coffee -lib sap.lib mustang.lib tmalign.lib -output sp_lib -outfile ${fam}.sp_lib -multi_core=${task.cpus}
@@ -355,8 +357,11 @@ process '7_splib' {
 }
 
 
-pfam_msa = Channel.fromPath ( params.pfam_aln )
-                  .map { aln -> return [aln.name.substring(0,7), 'pfam', aln] }
+Channel
+    .fromPath ( params.pfam_aln )
+    .map { aln -> return [aln.name.substring(0,7), 'pfam', aln] }
+    .set { pfam_msa }
+
 
 /*  
  * mix large_msa channel with the pfam_msa 
@@ -364,19 +369,13 @@ pfam_msa = Channel.fromPath ( params.pfam_aln )
 all_msa = large_msa.mix(pfam_msa)
 
 /* 
- * split the channel in two to handle them separately
- */
- 
-(sp_lib1, sp_lib2) = sp_lib.into(2)
-
-/* 
  * - Join each lib1 with the large msa for the corresponding family name 
  * - Create a channel named 'lib_and_msa' that will emit tuples like ( familyName, align method, sp_lib file, alignment file ) 
  */ 
-lib_and_msa = sp_lib1
-                .cross(all_msa)
-                .map { lib, aln -> [ lib[0], aln[1], lib[1], aln[2] ] }
-
+sp_lib1
+    .cross(all_msa)
+    .map { lib, aln -> [ lib[0], aln[1], lib[1], aln[2] ] }
+    .set { lib_and_msa } 
 
 process '8_Extracted_msa' {
     tag { "$fam-$method" }
@@ -388,7 +387,6 @@ process '8_Extracted_msa' {
 
     output:
     set fam, method, '*.extracted_msa' into extracted_msa
-
 
     """
     extract_subAln.pl \$PWD/${splib} \$PWD/${aln}
@@ -402,9 +400,10 @@ process '8_Extracted_msa' {
 }
 
 
-msa_eval = sp_lib2
-        .cross(extracted_msa)
-        .map { lib,aln -> [ lib[0], aln[1], lib[1], aln[2] ] }  //  ( familyName, method, sp_lib file, alignment file )
+sp_lib2
+    .cross(extracted_msa)
+    .map { lib,aln -> [ lib[0], aln[1], lib[1], aln[2] ] }  //  ( familyName, method, sp_lib file, alignment file )
+    .set { msa_eval }
 
 process '9_evaluate' {
     tag { "$fam-$method" }
@@ -491,23 +490,22 @@ def getScore(path) {
 def renderTable( Map map, methods ) {
     def result = new StringBuilder()
     def count = 0
+    
+    result << 'Family,'
+    result << methods.join(',') << '\n'
+    
     map.each { famName, allValues ->
-        def head = count++ == 0 ? new String[allValues.size()+1] : null	
         def row = new String[ methods.size()+1 ]
-
+        Arrays.fill(row,'-')
         row[0] = famName
-        if( head ) head[0] = 'Family'
 
         allValues.each { tuple ->
             def methodName = tuple[1]
             def index = methods.indexOf(methodName) +1
             if( !index ) { log.warn "Unknown method while rendering results table: '$methodName'" }
             row[index] = tuple[2]
-            if( head && index<head.size()) 
-              head[index] = methodName
         }
 
-        if( head ) result << ( head.join(',') ) << '\n'
         result << (row.join(',')) << '\n'
     }
 
@@ -541,3 +539,19 @@ def void testRenderTable() {
    def map = [PF00389:[['PF00389', 'clustalo', 0.775], ['PF00389', 'mafft', 0.735]], PF02826:[['PF02826', 'clustalo', 0.808], ['PF02826', 'mafft', 0.813]], PF03061:[['PF03061', 'mafft', 0.533], ['PF03061', 'clustalo', 0.791]]]
    assert renderTable(map,['mafft','clustalo']) == 'Family,mafft,clustalo\nPF00389,0.735,0.775\nPF02826,0.813,0.808\nPF03061,0.533,0.791\n'
 }
+
+def void testRenderTableBig() {
+   def map = [
+      PF00389:[ ['PF00389', 'clustalo', 0.775], ['PF00389', 'mafft', 0.735], ['PF00389', 'mega', 0.854], ['PF00389', 'pasta', 0.783], ['PF00389', 'upp', 0.424], ['PF00389', 'pfam', 0.968] ],    
+      PF02826:[['PF02826', 'clustalo', 0.808], ['PF02826', 'mafft', 0.813], ['PF02826', 'mega', 0.895], ['PF02826', 'pasta', 0.735], ['PF02826', 'upp', 0.947], ['PF02826', 'pfam', 0.843] ],  
+      PF03061:[['PF03061', 'mafft', 0.533], ['PF03061', 'clustalo', 0.791], ['PF03061', 'mega', 0.894], ['PF03061', 'pasta', 0.915], ['PF03061', 'upp', 0.823], ['PF03061', 'pfam', 0.956] ]]
+   
+   assert renderTable(map,['mafft','clustalo','mega','pasta','upp','pfam']) == '''
+   Family,mafft,clustalo,mega,pasta,upp,pfam
+   PF00389,0.735,0.775,0.854,0.783,0.424,0.968
+   PF02826,0.813,0.808,0.895,0.735,0.947,0.843
+   PF03061,0.533,0.791,0.894,0.915,0.823,0.956
+   '''
+   .stripIndent().leftTrim()
+}
+
