@@ -1,0 +1,154 @@
+digraph graphname {
+p0 [label="1_extractPdb"];
+p3 [label="3_filter"];
+p0 -> p3 [label="pdb_files"];
+
+p1 [label="2_extractFull"];
+p2 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p1 -> p2 [label="full_files"];
+
+p2 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p9 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="phase"];
+p2 -> p9 [label="full_files2"];
+
+p3 [label="3_filter"];
+p4 [label="4_pdb_extract"];
+p3 -> p4 [label="temp_struct"];
+
+p4 [label="4_pdb_extract"];
+p5 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="filter"];
+p4 -> p5 [label="modified_struct"];
+
+p4 [label="4_pdb_extract"];
+p35 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="subscribe"];
+p4 -> p35 [label="pml"];
+
+p5 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="filter"];
+p6 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="tap"];
+p5 -> p6;
+
+p6 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="tap"];
+p7 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="tap"];
+p6 -> p7;
+
+p6 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="tap"];
+p12 [label="5_Lib_and_Aln"];
+p6 -> p12 [label="modified_struct1"];
+
+p7 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="tap"];
+p8 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p7 -> p8;
+
+p7 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="tap"];
+p34 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="subscribe"];
+p7 -> p34 [label="modified_struct2"];
+
+p8 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p9 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="phase"];
+p8 -> p9;
+
+p9 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="phase"];
+p10 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p9 -> p10;
+
+p10 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p11 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="separate"];
+p10 -> p11;
+
+p11 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="separate"];
+p15 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="phase"];
+p11 -> p15 [label="fam_names"];
+
+p11 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="separate"];
+p14 [label="6_Large_scale_MSAs"];
+p11 -> p14 [label="fam_full"];
+
+p12 [label="5_Lib_and_Aln"];
+p32 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="collectFile"];
+p12 -> p32 [label="aln_files"];
+
+p12 [label="5_Lib_and_Aln"];
+p30 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="collectFile"];
+p12 -> p30 [label="irmsd_files"];
+
+p12 [label="5_Lib_and_Aln"];
+p15 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="phase"];
+p12 -> p15 [label="lib_files"];
+
+p13 [shape=point,label="",fixedsize=true,width=0.1];
+p14 [label="6_Large_scale_MSAs"];
+p13 -> p14 [label="method"];
+
+p14 [label="6_Large_scale_MSAs"];
+p20 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p14 -> p20 [label="large_msa"];
+
+p15 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="phase"];
+p16 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p15 -> p16;
+
+p16 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p17 [label="7_splib"];
+p16 -> p17 [label="fam_lib"];
+
+p17 [label="7_splib"];
+p21 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="cross"];
+p17 -> p21 [label="sp_lib1"];
+
+p17 [label="7_splib"];
+p24 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="cross"];
+p17 -> p24 [label="sp_lib2"];
+
+p18 [shape=point,label="",fixedsize=true,width=0.1,xlabel="fromPath"];
+p19 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p18 -> p19;
+
+p19 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p20 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p19 -> p20 [label="pfam_msa"];
+
+p20 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p21 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="cross"];
+p20 -> p21 [label="all_msa"];
+
+p21 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="cross"];
+p22 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p21 -> p22;
+
+p22 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p23 [label="8_Extracted_msa"];
+p22 -> p23 [label="lib_and_msa"];
+
+p23 [label="8_Extracted_msa"];
+p24 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="cross"];
+p23 -> p24 [label="extracted_msa"];
+
+p24 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="cross"];
+p25 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p24 -> p25;
+
+p25 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p26 [label="9_evaluate"];
+p25 -> p26 [label="msa_eval"];
+
+p26 [label="9_evaluate"];
+p27 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p26 -> p27 [label="evaluation"];
+
+p27 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="map"];
+p28 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="groupBy"];
+p27 -> p28;
+
+p28 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="groupBy"];
+p29 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="subscribe"];
+p28 -> p29;
+
+p30 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="collectFile"];
+p31 [shape=point];
+p30 -> p31;
+
+p32 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="collectFile"];
+p33 [shape=point];
+p32 -> p33;
+
+}
