@@ -68,7 +68,7 @@ open(TEMPL,"$file2");
 open(TEMPL_EXTRA,">temp.list");
 open(TEMPL_MODIF,">modified.template");
 open(PML_SCRP,">super.pml");
-
+open(LOG,">PDB_extract.log");
 ####################################################################################################
 # 1st step
 # extract pdb information from the template file
@@ -242,7 +242,7 @@ for ($ipdb=0;$ipdb<=$ia-1;$ipdb++)
 			elsif ($7 eq 'TRP') {$rtyp_1="W";}
 			elsif ($7 eq 'TYR') {$rtyp_1="Y";}
 			elsif ($7 eq 'VAL') {$rtyp_1="V";}
-			else { print "STDERR : Unkown aminoacid in sequence\n";}
+			else { print LOG "STDERR : Unkown aminoacid in sequence\n";}
 			$pdb_seq=$pdb_seq.$rtyp_1;
 			$pdb_pos="$pdb_pos $11";
 		}
@@ -275,7 +275,7 @@ for ($ik=0;$ik<=$ia-1;$ik++)
 		for ($gap=0;$gap<=int($cov*length($fastaseq[$ik]));$gap++)
 # Test on the coverage of the sequences : number of residues in Nter that could be missing !!!
 		{
-		if (length($fastaseq[$ik])<10) { print "STDERR : Sequence length is too short\n"; }
+		if (length($fastaseq[$ik])<10) { print LOG "STDERR : Sequence length is too short\n"; }
 			if ($nogap<1)
 			{
 				my $window1=substr($fastaseq[$ik],$gap,$sw);
@@ -313,7 +313,7 @@ for ($ik=0;$ik<=$ia-1;$ik++)
 # Then the sequence is removed from the fasta file and from the template file !!! 
 		if ($noseq<1)
 		{
-			print "STDERR : For $tmppdb[$ik], difference between Pfam and PDB sequences\n";
+			print LOG "STDERR : For $tmppdb[$ik], difference between Pfam and PDB sequences\n";
 		}
 		if ($noseq>0)
 		{
@@ -329,11 +329,11 @@ for ($ik=0;$ik<=$ia-1;$ik++)
 			}
 			if (length($fastaseq[$ik])<=($sl*int($avr)))
 			{
-				print "STDERR : For $tmppdb[$ik], sequence is too short\n";
+				print LOG "STDERR : For $tmppdb[$ik], sequence is too short\n";
 			}
 			if (length($fastaseq[$ik])>($sh*int($avr)))
 			{
-				print "STDERR : For $tmppdb[$ik], sequence is too long\n";
+				print LOG "STDERR : For $tmppdb[$ik], sequence is too long\n";
 			}
 		}
 		open (PDB_FILE,"$tmppdb[$ik].pdb");
