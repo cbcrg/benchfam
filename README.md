@@ -9,8 +9,9 @@ treshold can be modify in an early stage when preparing the data to give to
 the nextflow workflow. The quality of the stuctures depends on the results of
 the BLAST against the PDB database (it may not always be the best).
 
-## 1 - Installing NextFlow
+## 1 - Installing NextFlow and benchfam
 
+### NextFlow
 Install Nextflow runtime with this command:
 
     curl -fsSL get.nextflow.io | bash
@@ -21,14 +22,21 @@ following command in your shell terminal:
     nextflow run cbcrg/benchfam -profile demo -with-docker
 
 #### Prerequisites
-
+ 
 * Java 7 or later
 * Docker engine 1.0 or later (in alternative you can install the required
 dependecies as shown in the included [Dockerfile](Dockerfile))
 
 
+### BenchFam
+BenchFam is on GitHub; clone it from the CBCRG git account:
+
+    git clone https://github.com/cbcrg/benchfam.git
+
+All PERL and bash scripts, binaries, etc...are in the $CWD/benchfam/bin/.
+
+
 ## 2 - Getting the data
-From here, all mentioned scripts are located in the $PATH/benchfam/bin/
 
 ### Download the PFAM database 
 You can either download from the webpage directly or by using wget:
