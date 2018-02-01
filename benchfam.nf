@@ -68,8 +68,8 @@ log.info "id_filter        : ${params.id_filter}"
 
 // -- start of the workflow
 
-#proteins = Channel.fromPath('/users/cn/projects/PFAM_29.0/PFAM_more10/*_pdb.fa')
-proteins = Channel.fromPath('/users/cn/cmagis/HOME/01_SOFT/BENCHFAM-cbcrg/benchfam/*_pdb.fa')
+//proteins = Channel.fromPath('/users/cn/projects/PFAM_29.0/PFAM_more10/*_pdb.fa')
+proteins = Channel.fromPath('/users/cn/cmagis/HOME/01_SOFT/BENCHFAM-cbcrg/benchfam/demo/*_pdb.fa')
 
 process '1_filter_PDB' {
     tag { fasta.name }
