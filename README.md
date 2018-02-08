@@ -79,22 +79,31 @@ changed. It is an interactive script that will ask you two parameters:
 
 ## 3 - Run BenchFam with NextFlow
 
-There are still some improvment to do; for now, the path of the files extracted
-from Pfam-A.full has to be harcoded inside the pipeline. First, you need to get
-BenchFam from github and have NextFlow installed (step 1).
+There are still some improvement to do; for now, the path of the files extracted
+from Pfam-A.full has to be harcoded inside the nexflow piepline (benchfam.nf). First, 
+you need to get BenchFam from github and have NextFlow installed (step 1).
+
+### Description of benchfam.nf
 
 The BenchFam pipeline performs 3 operations:
-- 1_filter_PDB
+- 1_filter_PDB:
+
 Performs a first layer of filtering of the number of sequences, %id, coverage,
 etc...and identifies 3D template from the PDB.
-- 2_extract_PDB
+
+- 2_extract_PDB:
+
 Performs an extract of the exact part of the structure file corresponding to the
 sequences within the sequence file. It cuts out the 3D structure of each protein
 and rename the file with an index according to the number of domains within the
 same PDB file (it is important especially when domains are repeats).
-- 3_align_libraries
+
+- 3_align_libraries:
+
 Performs all alignments using a multitude of aligners based on structures or on
 sequence (e.g. SAP, TMalign, T-Coffee...)
+
+### Running benchfam.nf
 
 The command line to run benchfam.nf is:
 
@@ -106,8 +115,6 @@ If the run is stopped for any reason, it can be resumed:
 
 ## 4 - Organize & Test BenchFam output
 
-### Organize BenchFam from the nextflow log file
-
 The BenchFam pipeline will generate many output files stored in a scratch folder
 even when for some datasets fail at some step of the workflow. To get & organize
 the data, we use a perl script : BENCHFAM_LOG_extract.pl. The script needs two
@@ -115,7 +122,7 @@ input arguments:
 - the log file from BenchFam nextFlow
 - the full PATH for the scratch directory
 
-Generate the script to organize BenchFam:
+Generate the script to organize/test BenchFam:
 
     perl BENCHFAM_LOG_extract.pl trace_pfam_28.0_2018 $PATH/PFAM_28.0_scratch
 
@@ -124,21 +131,9 @@ run in the SCRATCH folder $PATH/PFAM_28.0_scratch in order to organize BENCHFAM:
 
     ./run_copy_scratch.sh
 
-
-### Test the final results
-
-Some steps of the pipeline are not full proof, espcially the PDB_extract.pl due
-to discrepancies between the PDB information from BLAST and the information in
-the corresponding PDB file (missing regions, mutations, etc...)
-In order to verify that there is no problematic case, the best way is to check
-in the EVAL folder the IRMSD files. In case of disgreement between PDB sequence
-and PFAM sequence, the IRMSD package of T-Coffee will attribute a value of -1.0
-to the comparisons involving these structure. 
-
-    grep " -1.00" xxx.irmsd | wc -l
-
-If the count is not NULL, then the dataset must be discarded or manually curated.
-
-
-
+The tests will concern only eventual discrepancies between the PDB information 
+from BLAST and the information in the corresponding PDB file (missing regions, 
+mutations, etc...). The evaluation is made one the IRSMD files from the EVAL
+folder; any structural discrepancy will results in a IRMSD value of -1.00. All
+families for which this happen will be moved in a folder "PROBLEMS".
 
