@@ -16,11 +16,6 @@ Install Nextflow runtime with this command:
 
     curl -fsSL get.nextflow.io | bash
 
-Launch the pipeline executed using the embedded demo dataset entering the
-following command in your shell terminal:
-
-    nextflow run cbcrg/benchfam -profile demo -with-docker
-
 #### Prerequisites
  
 * Java 7 or later

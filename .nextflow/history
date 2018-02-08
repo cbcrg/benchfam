@@ -1,3 +1,8 @@
 2018-02-01 12:33:30	-	stupefied_hamilton	-	dba1f461886cda8579868c1d1f77f0eb	d80f56ec-40c1-44d7-bcc2-f2b6f8acbd56	nextflow run benchfam.nf -c pfam28_demo.config
 2018-02-01 12:33:56	7.1s	agitated_goldstine	OK	9d30fa105ff81db8733241e13678b626	21324b73-352a-46b5-b5fa-0bb8b70da811	nextflow run benchfam.nf -c pfam28_demo.config
 2018-02-01 12:36:08	11m 58s	lonely_easley	ERR	132f895236ee7e87ee8c88684363a06c	d3d5f410-c8af-434c-b088-6555a8a09e09	nextflow run benchfam.nf -c pfam28_demo.config
+2018-02-01 12:51:05	50m 42s	sharp_wilson	OK	132f895236ee7e87ee8c88684363a06c	f8f9741f-0d86-4c1a-ace0-d04a9641ec80	nextflow run benchfam.nf -c pfam28_demo.config
+2018-02-01 14:05:26	-	sleepy_dubinsky	-	132f895236ee7e87ee8c88684363a06c	512371bf-0b52-46cf-8fed-08ad606d4bb2	nextflow run benchfam.nf -c pfam28_demo.config
+2018-02-01 14:07:10	23m 52s	sad_stonebraker	OK	132f895236ee7e87ee8c88684363a06c	befcfbe2-b898-48ea-8199-aec5caf2ea09	nextflow run benchfam.nf -c pfam28_demo.config
+2018-02-06 15:10:01	-	pedantic_mclean	-	132f895236ee7e87ee8c88684363a06c	81f417b3-1817-4d5c-b8f7-b92d908c4af2	nextflow run benchfam.nf -c pfam28_demo.config
+2018-02-06 15:10:39	12m 12s	serene_allen	OK	132f895236ee7e87ee8c88684363a06c	ca029668-5e30-4048-9583-60b5f85e4a28	nextflow run benchfam.nf -c pfam28_demo.config

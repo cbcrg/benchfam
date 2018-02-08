@@ -25,6 +25,7 @@ my @pfam1;
 my @pfam2;
 my @step;
 my @status;
+my @array;
 
 my $temp1;
 my $temp2;
@@ -36,14 +37,20 @@ my $temp7;
 my $temp8;
 
 my $pfam_tmp;
+my $problem;
 
 my $ia;
 my $ib;
 my $ic;
 my $id;
+my $ie;
 
 open (TEMP,"$file");
 open (SHLL,">run_copy_scratch.sh");
+print SHLL "#!/bin/bash\n";
+print SHLL "# Organize BenchFam database from the scratch folder\n";
+print SHLL "####################################################\n";
+print SHLL "\n";
 while (my $line1=<TEMP>)
 {
 	$ia++;
@@ -75,7 +82,7 @@ while (my $line1=<TEMP>)
 	if ($7 eq '3_align_libraries' &&  $11 eq 'COMPLETED')
 	{	
 		$ic++;
-#		print "$pfam_tmp  $7 \n";
+#		print "$ic $pfam_tmp  $7 \n";
 		push (@pfam2,"$pfam_tmp");	
 	}
 }
@@ -110,6 +117,20 @@ for ($ib=0;$ib<$ia;$ib++)
 			}
 		}
 	}
+}
+
+print SHLL "\n";
+print SHLL "# Testing BenchFam for discrepancies between sequence and structure\n";
+print SHLL "###################################################################\n";
+print SHLL "\n";
+print SHLL "mkdir BENCHFAM/PROBLEMS\n";
+for ($ie=0;$ie<$ic;$ie++)
+{
+	my $test="./BENCHFAM/$pfam2[$ie]/EVAL/3Dmcoffee_irmsd";
+	print SHLL "problems=\$(grep \" -1.00\" $test | wc -l)\n";
+	print SHLL "if [ \"\$problems\" -gt \"0\" ]; then \n";
+	print SHLL "mv ./BENCHFAM/$pfam2[$ie] BENCHFAM/PROBLEMS\n";
+	print SHLL "fi\n";
 }
 
 close (TEMP);
